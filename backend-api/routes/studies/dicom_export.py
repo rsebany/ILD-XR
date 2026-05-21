@@ -1,0 +1,128 @@
+from __future__ import annotations
+import os
+import tempfile
+import zipfile
+from io import BytesIO
+from urllib.parse import quote_plus
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+
+from models.db import get_session
+from models.models import StudyORM, PatientORM, SegmentationResultORM
+from routes.patients.common import _resolve_patient_name
+from services.studies.pdf import build_ild_study_report_pdf
+
+from services.dicom.series_read import list_dicom_paths
+
+from .common import _ensure_study_dicom_dir
+
+router = APIRouter(prefix="/studies", tags=["studies"])
+
+
+@router.get(
+    "/{study_id}/dicom-zip",
+    summary="Download study DICOM series as ZIP",
+    name="studies_dicom_zip",
+)
+async def get_study_dicom_zip(study_id: str):
+    """Stream DICOM series as a ZIP. Optimized for zero-compression (speed)."""
+    study_dicom_dir = _ensure_study_dicom_dir(study_id)
+    if not study_dicom_dir.exists():
+        raise HTTPException(status_code=404, detail="DICOM data not found on disk")
+
+    dcm_files = list_dicom_paths(study_dicom_dir, include_dicom_ext=True)
+    if not dcm_files:
+        raise HTTPException(status_code=404, detail="Study directory contains no DICOM files")
+
+    def _generate_zip():
+        fd, path = tempfile.mkstemp(suffix=".zip")
+        try:
+            os.close(fd)
+            seen_arcnames = set()
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
+                for f in dcm_files:
+                    arcname = str(f.relative_to(study_dicom_dir)).replace("\\", "/")
+                    if arcname in seen_arcnames:
+                        continue
+                    seen_arcnames.add(arcname)
+                    zf.write(f, arcname)
+            with open(path, "rb") as f_out:
+                while chunk := f_out.read(256 * 1024):
+                    yield chunk
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+    return StreamingResponse(
+        _generate_zip(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=study_{study_id}.zip"},
+    )
+
+
+@router.get(
+    "/{study_id}/report-pdf",
+    summary="Download one-page ILD study PDF (QR to viewer)",
+    name="studies_report_pdf",
+)
+async def get_study_report_pdf(study_id: str):
+    """Generate a simple single-page PDF report with study metrics."""
+    with get_session() as session:
+        study = (
+            session.query(StudyORM)
+            .join(PatientORM)
+            .outerjoin(SegmentationResultORM)
+            .filter(StudyORM.external_id == study_id)
+            .first()
+        )
+        if not study:
+            raise HTTPException(status_code=404, detail="Study not found")
+        if not study.segmentation:
+            raise HTTPException(
+                status_code=404,
+                detail="Cannot generate report: study metrics are not available yet",
+            )
+
+        seg = study.segmentation
+        # Resolve patient name, converting placeholders to external_id
+        patient_name = _resolve_patient_name(
+            study.patient.name if study.patient else None,
+            study.patient.external_id if study.patient else "Unknown"
+        )
+        created_at = (
+            study.created_at.strftime("%Y-%m-%d %H:%M") if study.created_at else "N/A"
+        )
+        frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+        patient_external_id = (
+            study.patient.external_id if study.patient and study.patient.external_id else None
+        )
+        study_url = f"{frontend_base_url}/view2d?studyId={quote_plus(study_id)}"
+        if patient_external_id:
+            study_url += f"&patientId={quote_plus(patient_external_id)}"
+
+        per_class = [
+            ("GGO", seg.ggo_volume_ml),
+            ("Reticulation", seg.reticulation_volume_ml),
+            ("Consolidation", seg.consolidation_volume_ml),
+        ]
+        zonal = seg.zonal_distribution or {}
+
+    pdf_bytes = build_ild_study_report_pdf(
+        study_id=study_id,
+        patient_name=patient_name,
+        acquisition_label=created_at,
+        total_ild_volume_ml=float(seg.total_ild_volume_ml or 0.0),
+        ild_burden_fraction=float(seg.ild_fraction or 0.0),
+        lung_volume_ml=float(seg.lung_volume_ml or 0.0),
+        zonal_distribution=zonal,
+        per_class_volumes=per_class,
+        viewer_url_for_qr=study_url,
+    )
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="study_{study_id}_report.pdf"'},
+    )

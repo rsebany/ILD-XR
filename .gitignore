@@ -1,0 +1,32 @@
+# Node / Next.js
+node_modules/
+.next/
+frontend/.next/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment / secrets (do NOT commit)
+*.env
+*.env.*
+backend-api/.env
+frontend/.env
+frontend/.env.*
+
+# Local data / outputs
+backend-api/data/
+backend-ai/weights/
+backend-api/static/meshes/
+backend-api/tmp/
+
+venv/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

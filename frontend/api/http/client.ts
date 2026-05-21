@@ -1,0 +1,211 @@
+const DEFAULT_BASE_URL =
+  (typeof process !== "undefined" &&
+    (process.env.NEXT_PUBLIC_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL)) ||
+  "http://localhost:8000";
+
+const AUTH_STORAGE_KEY = "ildxr_auth";
+
+export interface RequestOptions extends Omit<RequestInit, "body"> {
+  /** If false, do not JSON-encode the body even if it's an object. */
+  jsonBody?: boolean;
+  /** Request body; objects are JSON-encoded when jsonBody is true. */
+  body?: unknown;
+}
+
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(message: string, status: number, data: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+function detailToMessage(detail: unknown): string | null {
+  if (typeof detail === "string") {
+    const trimmed = detail.trim();
+    return trimmed || null;
+  }
+  if (typeof detail === "number" || typeof detail === "boolean") {
+    return String(detail);
+  }
+  if (Array.isArray(detail)) {
+    const items = detail
+      .map((item) => detailToMessage(item))
+      .filter((item): item is string => Boolean(item));
+    return items.length ? items.join("; ") : null;
+  }
+  if (detail && typeof detail === "object") {
+    const record = detail as Record<string, unknown>;
+    const primary =
+      detailToMessage(record.message) ??
+      detailToMessage(record.detail) ??
+      detailToMessage(record.msg) ??
+      detailToMessage(record.error);
+    if (primary) {
+      return primary;
+    }
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function getApiBaseUrl(): string {
+  return DEFAULT_BASE_URL.replace(/\/+$/, "");
+}
+
+export function buildApiUrl(path: string): string {
+  return path.startsWith("http://") || path.startsWith("https://")
+    ? path
+    : `${getApiBaseUrl()}/${path.replace(/^\/+/, "")}`;
+}
+
+export function getAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as { access_token?: string };
+    if (!parsed.access_token) {
+      return {};
+    }
+    return { Authorization: `Bearer ${parsed.access_token}` };
+  } catch {
+    return {};
+  }
+}
+
+function normalizeHeaders(
+  headers: HeadersInit | undefined,
+  authHeader: Record<string, string>,
+): Record<string, string> {
+  let normalizedHeaders: Record<string, string> = { ...authHeader };
+  if (headers instanceof Headers) {
+    normalizedHeaders = {
+      ...normalizedHeaders,
+      ...Object.fromEntries(headers.entries()),
+    };
+  } else if (Array.isArray(headers)) {
+    normalizedHeaders = { ...normalizedHeaders, ...Object.fromEntries(headers) };
+  } else if (headers && typeof headers === "object") {
+    normalizedHeaders = {
+      ...normalizedHeaders,
+      ...(headers as Record<string, string>),
+    };
+  }
+  return normalizedHeaders;
+}
+
+export async function apiFetchRaw(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Response> {
+  const url = buildApiUrl(path);
+  const { jsonBody = true, headers, body, ...rest } = options;
+  const initHeaders = normalizeHeaders(headers, getAuthHeader());
+  const isFormData = body instanceof FormData;
+  const shouldSendJsonContentType =
+    jsonBody && !isFormData && !("Content-Type" in initHeaders);
+  if (shouldSendJsonContentType) {
+    initHeaders["Content-Type"] = "application/json";
+  }
+
+  const init: RequestInit = {
+    ...rest,
+    headers: initHeaders,
+  };
+  if (body !== undefined) {
+    init.body =
+      jsonBody && typeof body === "object" && !(body instanceof FormData)
+        ? JSON.stringify(body)
+        : (body as BodyInit);
+  }
+
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const text = await res.text();
+    const isJson = res.headers.get("content-type")?.includes("application/json");
+    const data = text && isJson ? JSON.parse(text) : text;
+    const detail =
+      data && typeof data === "object"
+        ? (data as { detail?: unknown }).detail
+        : data;
+    const message =
+      detailToMessage(detail) ??
+      detailToMessage(data) ??
+      `Request failed with status ${res.status}`;
+    throw new ApiError(
+      message,
+      res.status,
+      data,
+    );
+  }
+  return res;
+}
+
+/** GET (or custom method) and return response body as Blob; auth + base URL like {@link apiFetch}. */
+export async function apiFetchBlob(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Blob> {
+  const res = await apiFetchRaw(path, {
+    ...options,
+    method: options.method ?? "GET",
+    jsonBody: false,
+  });
+  return res.blob();
+}
+
+/** JSON GET/POST; returns `null` on 404, rethrows other errors. */
+export async function apiFetchAllow404<TResponse>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TResponse | null> {
+  try {
+    return await apiFetch<TResponse>(path, options);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** Like {@link apiFetchRaw} but returns `null` on 404 (for binary routes). */
+export async function apiFetchRawAllow404(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Response | null> {
+  try {
+    return await apiFetchRaw(path, options);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function apiFetch<TResponse>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TResponse> {
+  const res = await apiFetchRaw(path, options);
+  const text = await res.text();
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const data = text && isJson ? JSON.parse(text) : text;
+  return data as TResponse;
+}
+

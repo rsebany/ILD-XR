@@ -1,0 +1,137 @@
+/** Upper / Middle / Lower — % of ILD voxels in each craniocaudal third. */
+export type ZonalDistribution = Record<string, number>;
+
+/** @deprecated Renamed to ZonalDistribution. Kept as an alias to avoid breaking imports. */
+export type LobarDistribution = ZonalDistribution;
+
+export interface XRViewConfig {
+  id: string;
+  mesh_url: string;
+  clipping_enabled: boolean;
+}
+
+export interface SegmentationResult {
+  id: string;
+  total_ild_volume_ml: number;
+  /** Total parenchyma volume (cm³) computed from the lung mask. */
+  lung_volume_ml?: number | null;
+  /** Aggregate ILD burden = total_ild_volume_ml / lung_volume_ml (clamped to [0,1]). */
+  ild_burden?: number | null;
+  /** Per-class lesion volumes (cm³ ≡ ml). Equation 1.5 in the report. */
+  ggo_volume_ml?: number | null;
+  reticulation_volume_ml?: number | null;
+  consolidation_volume_ml?: number | null;
+  /** Per-class burdens = V_class / V_lung. Equation 1.6 in the report. */
+  ggo_burden?: number | null;
+  reticulation_burden?: number | null;
+  consolidation_burden?: number | null;
+  zonal_distribution: ZonalDistribution;
+  mesh_url: string;
+  xr_view?: XRViewConfig | null;
+  visualization_mode: "2d" | "3d" | "xr" | "mixed";
+  dice_score?: number | null;
+}
+
+/** Segmentation with guaranteed XR mesh field for viewers / upload pipeline. */
+export type SegmentationResultDTO = SegmentationResult & {
+  xr_view: XRViewConfig;
+};
+
+export interface Study {
+  id: string;
+  description?: string | null;
+  created_at: string;
+  modality: string;
+  segmentation?: SegmentationResult | null;
+}
+
+export interface StudyListItem {
+  study_id: string;
+  patient_id: string;
+  patient_name: string;
+  modality: string;
+  ild_fraction: number;
+  volume_total_mm3: number;
+  status: "Completed" | "Processing" | "Pending";
+  acquisition_date?: string | null;
+  /** Upper / Middle / Lower — % of ILD burden per craniocaudal zone. */
+  zonal_distribution?: ZonalDistribution;
+  lung_volume_ml?: number | null;
+  ggo_volume_ml?: number | null;
+  reticulation_volume_ml?: number | null;
+  consolidation_volume_ml?: number | null;
+  ggo_burden?: number | null;
+  reticulation_burden?: number | null;
+  consolidation_burden?: number | null;
+}
+
+export interface UploadStudyResponse {
+  study_id: string;
+  patient: any;
+}
+
+/** Response from POST /studies/upload/expert-mask-compare */
+export interface ExpertMaskCompareResponse {
+  study_id: string;
+  expert_shape: [number, number, number];
+  prediction_shape: [number, number, number];
+  dice: Record<string, number>;
+  expert_label_max_seen: number;
+  /** Kept false; experts are remapped, not clipped to class 3. */
+  expert_labels_were_clipped: boolean;
+  expert_remap_mode: string;
+  expert_remap_note?: string | null;
+  expert_labels_were_remapped: boolean;
+  /** Voxel counts for labels 0–3 on expert (after remap to model classes). */
+  voxel_count_expert: Record<string, number>;
+  voxel_count_prediction: Record<string, number>;
+  /** If true, Dice=1 for that class only means both masks have zero voxels of that class. */
+  dice_vacuous_both_empty: Record<string, boolean>;
+  foreground_overlap_voxels: number;
+  expert_foreground_voxels: number;
+  prediction_foreground_voxels: number;
+  voxel_agreement_fraction: number;
+  interpretation_hint?: string | null;
+  expert_stack_mode?: string | null;
+  expert_inplane_correction?: string | null;
+  expert_slices_matched?: number | null;
+}
+
+/** Payload for `POST /studies/upload` `patient` form field (JSON). */
+export interface UploadStudyPatientPayload {
+  id?: string;
+  name: string;
+  dob?: string;
+  sex?: string;
+}
+
+/** Native DICOM grid from `GET /studies/{id}/dicom-shape` (Z,Y,X indexing). */
+export type DicomVolumeShape = {
+  depth: number;
+  height: number;
+  width: number;
+  spacing_z_mm: number;
+  spacing_y_mm: number;
+  spacing_x_mm: number;
+};
+
+/** SSE payloads from `GET /studies/{id}/events`. */
+export type StudySyncEvent =
+  | {
+      event: "mesh.updated";
+      study_id: string;
+      revision_id: number;
+      mesh_url?: string;
+      metrics?: Record<string, number>;
+      zonal_distribution?: Record<string, number>;
+      ts?: string;
+    }
+  | {
+      event: "segmentation.status";
+      study_id: string;
+      current_revision_id: number;
+      latest?: {
+        revision_id: number;
+        mesh_url?: string | null;
+      } | null;
+    };

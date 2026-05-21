@@ -1,0 +1,6 @@
+{
+  "modalities": ["ct", "hrct", "mri", "xray", "other"],
+  "study_statuses": ["Completed", "Processing", "Pending"],
+  "lung_zones": ["Upper", "Middle", "Lower"]
+}
+

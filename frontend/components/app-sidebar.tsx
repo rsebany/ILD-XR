@@ -1,0 +1,56 @@
+"use client";
+
+import React from "react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { AppLogo } from "@/components/app-logo";
+import { NavMain } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import { AppSidebarPage } from "@/api/domain";
+
+type AppSidebarProps = {
+  activePage: AppSidebarPage;
+};
+
+export function AppSidebar({ activePage }: AppSidebarProps) {
+  const { state } = useSidebar();
+
+  return (
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-ild-border bg-ild-sidebar text-sidebar-foreground"
+    >
+      <SidebarHeader className="flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <AppLogo size={24} className="h-6 w-6 shrink-0 object-contain" />
+            {state === "expanded" && (
+              <span className="truncate text-base font-semibold tracking-wide text-ild-accent">
+                ILD-XR
+              </span>
+            )}
+          </div>
+          {state === "expanded" && (
+            <SidebarTrigger className="shrink-0 text-muted-foreground hover:text-foreground" />
+          )}
+        </div>
+        {state === "collapsed" && (
+          <div className="flex justify-center pt-1">
+            <SidebarTrigger className="shrink-0 text-muted-foreground hover:text-foreground" />
+          </div>
+        )}
+      </SidebarHeader>
+      <SidebarContent className="gap-0 px-1 py-2 text-sm">
+        <NavMain activePage={activePage} />
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
+export type { AppSidebarPage };

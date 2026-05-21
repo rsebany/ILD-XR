@@ -1,0 +1,9 @@
+{
+  "model_name": "3D-Res-UNet",
+  "description": "3D residual U-Net for ILD segmentation on chest CT.",
+  "owner": "ILD-XR",
+  "input_modality": "ct",
+  "input_description": "Single DICOM chest CT series (axial slices).",
+  "version": "1.0.0"
+}
+
