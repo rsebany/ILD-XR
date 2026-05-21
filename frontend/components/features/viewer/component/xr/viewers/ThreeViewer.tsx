@@ -39,6 +39,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
   compareMeshUrl = null,
   comparePrimaryPosition = [-0.38, 0, 0],
   compareSecondaryPosition = [0.38, 0, 0],
+  meshRotation = [0, 0, 0],
   usePlaceholder = false,
   showMesh = true,
   backgroundColor = "#020617",
@@ -129,7 +130,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
           <>
             {hasDualMeshes ? (
               <>
-                <group position={comparePrimaryPosition}>
+                <group position={comparePrimaryPosition} rotation={meshRotation}>
                   <Suspense fallback={null}>
                     <GltfMeshNoCamera
                       meshUrl={meshUrl}
@@ -138,7 +139,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
                     />
                   </Suspense>
                 </group>
-                <group position={compareSecondaryPosition}>
+                <group position={compareSecondaryPosition} rotation={meshRotation}>
                   <Suspense fallback={null}>
                     <GltfMeshNoCamera
                       meshUrl={compareMeshUrl!}
@@ -149,7 +150,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = ({
                 </group>
               </>
             ) : (
-              <group position={meshGroupPosition}>
+              <group position={meshGroupPosition} rotation={meshRotation}>
                 <Suspense fallback={null}>
                   {usePlaceholder ? (
                     <ProceduralLung />

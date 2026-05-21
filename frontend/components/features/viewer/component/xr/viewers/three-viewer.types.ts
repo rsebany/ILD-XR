@@ -38,6 +38,8 @@ export type ThreeViewerProps = {
   comparePrimaryPosition?: [number, number, number];
   /** World-space offset for the compare (secondary) mesh. */
   compareSecondaryPosition?: [number, number, number];
+  /** Rotation of the mesh groups in radians. Useful for page-specific orientation fixes. */
+  meshRotation?: [number, number, number];
   /** When no real mesh is available, show a procedural stand-in (no 404, no CORS). */
   usePlaceholder?: boolean;
   /** If false, only the DICOM stack (when `dicomContext` is set) is shown — no mesh. */

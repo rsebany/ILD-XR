@@ -265,6 +265,7 @@ export function View3DReconstructionPanel() {
               showMesh={showMeshInViewer}
               visualPreset="default"
               classVisibility={classVisibility}
+              meshRotation={[Math.PI, 0, 0]}
             />
           </div>
 
