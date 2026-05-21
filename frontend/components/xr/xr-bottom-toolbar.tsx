@@ -39,6 +39,8 @@ type Props = {
   onPresetShell: () => void;
   /** Center toolbar layout, balanced camera, then request immersive session. */
   onEnterImmersiveCentered: () => void | Promise<void>;
+  /** Toggle browser fullscreen for immersive preview (hides navbar) */
+  onToggleFullscreen?: () => void;
   alternateLabHref: string;
   alternateLabShortLabel: string;
   immersiveMode: XrImmersiveToolbarMode;
@@ -62,6 +64,7 @@ export function XrBottomToolbar({
   onPresetLesions,
   onPresetShell,
   onEnterImmersiveCentered,
+  onToggleFullscreen,
   alternateLabHref,
   alternateLabShortLabel,
   immersiveMode,
@@ -200,47 +203,59 @@ export function XrBottomToolbar({
         "flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center",
       )}
     >
-      {isImmersiveSupported ? (
-        <>
+      <div className="flex gap-2 w-full max-w-xs sm:flex-1">
+        {isImmersiveSupported ? (
           <Button
             type="button"
             onClick={() => void onEnterImmersiveCentered()}
             className={cn(
               "h-10 shrink-0 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-lg transition hover:bg-sky-500 sm:h-11",
-              "w-full max-w-xs sm:flex-1",
+              "flex-1",
             )}
           >
             {enterLabel}
           </Button>
+        ) : (
           <Button
             type="button"
-            variant="outline"
-            size="sm"
             asChild
             className={cn(
-              "h-10 shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11",
-              "w-full max-w-xs sm:flex-1",
+              "h-10 shrink-0 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-lg transition hover:bg-sky-500 sm:h-11",
+              "flex-1",
             )}
           >
             <Link href={alternateLabHref} prefetch>
-              {alternateLabShortLabel} lab
+              Open {alternateLabShortLabel}
             </Link>
           </Button>
-        </>
-      ) : (
+        )}
         <Button
           type="button"
-          asChild
+          variant="outline"
+          size="sm"
+          onClick={onToggleFullscreen}
           className={cn(
-            "h-10 shrink-0 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-lg transition hover:bg-sky-500 sm:h-11",
-            "w-full max-w-xs sm:flex-1",
+            "h-10 shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11",
+            "w-24"
           )}
         >
-          <Link href={alternateLabHref} prefetch>
-            Open {alternateLabShortLabel}
-          </Link>
+          Plein écran
         </Button>
-      )}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        asChild
+        className={cn(
+          "h-10 shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11",
+          "w-full max-w-xs sm:flex-1",
+        )}
+      >
+        <Link href={alternateLabHref} prefetch>
+          {alternateLabShortLabel} lab
+        </Link>
+      </Button>
     </div>
   );
 

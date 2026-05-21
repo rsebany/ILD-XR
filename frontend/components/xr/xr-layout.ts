@@ -3,6 +3,9 @@ import type { SceneEulerRotation } from "@/lib/xr/scene-rotation";
 /** Yaw par défaut du mesh face à la caméra XR (tourne vers la droite / vue antérieure). */
 export const XR_MESH_DEFAULT_VIEW_ROTATION: SceneEulerRotation = [0, -Math.PI / 2, 0];
 
+/** Extra rotation in immersive VR/AR: flip the mesh apex downward for table/supine headset view. */
+export const XR_IMMERSIVE_MESH_ROTATION_OFFSET: SceneEulerRotation = [Math.PI, 0, 0];
+
 /**
  * Clinical viewing zone inside the hospital OR (floor y≈0 after GLB fit).
  * Anchored to the OP table volume — HospitalBackground aligns the GLB to this point.

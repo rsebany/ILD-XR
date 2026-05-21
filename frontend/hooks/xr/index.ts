@@ -4,3 +4,4 @@ export {
   type WebXrSessionMode,
 } from "./use-webxr-session-support";
 export { useXrStudyData } from "./use-xr-study-data";
+export { useXrPresenting } from "./use-xr-presenting";

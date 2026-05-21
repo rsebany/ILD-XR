@@ -9,6 +9,54 @@ import { XR_CLINICAL_ZONE } from "@/components/xr/xr-layout";
 const HOSPITAL_SCENE_URL = "/xr/backgrounds/hospital/scene.gltf";
 const HOSPITAL_RESOURCE_PATH = "/xr/backgrounds/hospital/";
 const TARGET_FOOTPRINT_METERS = 22;
+/** GLTF glass uses ~0.04 alpha; lower values break WebGL validation in WebXR on some GPUs. */
+const MIN_HOSPITAL_GLASS_OPACITY = 0.12;
+
+function hasUsableTexture(map: THREE.Texture | null | undefined): map is THREE.Texture {
+  const image = map?.image as { width?: number; height?: number } | undefined;
+  return Boolean(image && image.width && image.height);
+}
+
+/** Stabilize GLTF unlit/blend materials for WebXR (Quest, mobile AR) and local clipping. */
+function sanitizeHospitalMaterials(root: THREE.Object3D) {
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+
+    const apply = (mat: THREE.Material) => {
+      const m = mat.clone();
+      m.clippingPlanes = [];
+      m.clipShadows = false;
+
+      if (m instanceof THREE.MeshBasicMaterial) {
+        if (m.map && !hasUsableTexture(m.map)) {
+          m.map = null;
+        }
+        if (m.alphaMap && !hasUsableTexture(m.alphaMap)) {
+          m.alphaMap = null;
+        }
+
+        const needsBlend = m.transparent || m.opacity < 1;
+        if (needsBlend) {
+          m.transparent = true;
+          m.depthWrite = false;
+          if (m.opacity < MIN_HOSPITAL_GLASS_OPACITY) {
+            m.opacity = MIN_HOSPITAL_GLASS_OPACITY;
+            m.alphaTest = 0.02;
+          }
+        }
+      }
+
+      m.needsUpdate = true;
+      return m;
+    };
+
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map(apply);
+    } else if (obj.material) {
+      obj.material = apply(obj.material);
+    }
+  });
+}
 
 /** World-space anchor for the operative table / workspace inside the GLB. */
 function resolveOrInteriorAnchor(
@@ -41,6 +89,7 @@ export function HospitalBackground() {
   });
   const { preparedScene, position, scale } = useMemo(() => {
     const clone = scene.clone(true);
+    sanitizeHospitalMaterials(clone);
     const box = new THREE.Box3().setFromObject(clone);
     const size = new THREE.Vector3();
     box.getSize(size);

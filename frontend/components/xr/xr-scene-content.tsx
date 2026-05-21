@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Html, OrbitControls } from "@react-three/drei";
+import { Html, OrbitControls, Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useXR } from "@react-three/xr";
 import * as THREE from "three";
@@ -15,6 +15,7 @@ import {
   clinicalWorldPosition,
   combineAnchor,
   XR_CLINICAL_ZONE,
+  XR_IMMERSIVE_MESH_ROTATION_OFFSET,
   XR_MESH_DEFAULT_VIEW_ROTATION,
   XR_SIDE_BY_SIDE,
   xrPreviewCameraPose,
@@ -197,8 +198,7 @@ export function XRSceneContent({
   const session = useXR((s) => s.session);
   const isPresenting = Boolean(session);
   const isArImmersive = isPresenting && sceneVariant === "ar";
-  const isVrImmersive = isPresenting && sceneVariant === "vr";
-  const useHtmlControls = !isVrImmersive;
+  const useHtmlControls = !isPresenting;
   const showImmersive3DControls = isPresenting;
   const [meshDragOffset, setMeshDragOffset] = useState<[number, number, number]>([0, 0, 0]);
   const [meshRotation, setMeshRotation] = useState<SceneEulerRotation>(
@@ -207,6 +207,9 @@ export function XRSceneContent({
   const [placingLesion, setPlacingLesion] = useState(false);
   const [userLesions, setUserLesions] = useState<
     Array<{ id: string; position: [number, number, number] }>
+  >([]);
+  const [panels, setPanels] = useState<
+    Array<{ id: string; title: string; angle: number; distance: number; size: [number, number] }>
   >([]);
   const meshGroupRef = useRef<THREE.Group>(null);
   const [arAnchor, setArAnchor] = useState<[number, number, number]>(() => [
@@ -232,6 +235,12 @@ export function XRSceneContent({
     [isArImmersive],
   );
 
+  const meshDisplayRotation = useMemo((): SceneEulerRotation => {
+    if (!isPresenting) return meshRotation;
+    const [ox, oy, oz] = XR_IMMERSIVE_MESH_ROTATION_OFFSET;
+    return [meshRotation[0] + ox, meshRotation[1] + oy, meshRotation[2] + oz];
+  }, [isPresenting, meshRotation]);
+
   const rotateMeshY = React.useCallback((direction: 1 | -1) => {
     setMeshRotation((current) => stepRotationY(current, direction));
   }, []);
@@ -239,6 +248,46 @@ export function XRSceneContent({
   const resetMeshRotation = React.useCallback(() => {
     setMeshRotation(XR_MESH_DEFAULT_VIEW_ROTATION);
   }, []);
+
+  const flipMesh = React.useCallback(() => {
+    setMeshRotation((current) => [current[0] + Math.PI, current[1], current[2]]);
+  }, []);
+
+  const createPanelTexture = React.useCallback((title: string) => {
+    const w = 512;
+    const h = 320;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#071022";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#a5f3fc";
+    ctx.font = "bold 36px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(title, w / 2, 60);
+    ctx.fillStyle = "#e5e7eb";
+    ctx.font = "16px sans-serif";
+    ctx.fillText("Contenu XR — exemple de panneau", w / 2, 110);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
+
+  const addPanel = React.useCallback(() => {
+    setPanels((prev) => {
+      const next = prev.length;
+      const spread = Math.min(5, next + 1);
+      const angle = (next - (spread - 1) / 2) * (Math.PI / 10);
+      return [
+        ...prev,
+        { id: `panel-${Date.now()}`, title: `Screen ${next + 1}`, angle, distance: 1.2, size: [0.9, 0.56] },
+      ];
+    });
+  }, []);
+
+  const clearPanels = React.useCallback(() => setPanels([]), []);
 
   const handleSurfacePick = React.useCallback((worldPoint: THREE.Vector3) => {
     const group = meshGroupRef.current;
@@ -265,6 +314,23 @@ export function XRSceneContent({
     active: false,
     distance: 0,
   });
+
+  const placeArContentInFrontOfUser = React.useCallback(() => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    direction.y = 0;
+    if (direction.lengthSq() < 1e-6) {
+      direction.set(0, 0, -1);
+    } else {
+      direction.normalize();
+    }
+    const target = new THREE.Vector3()
+      .copy(camera.position)
+      .addScaledVector(direction, 1.15);
+    target.y = XR_CLINICAL_ZONE.center[1];
+    setArAnchor([target.x, target.y, target.z]);
+    setArPlaced(true);
+  }, [camera]);
 
   const handleReset = () => {
     setMeshDragOffset([0, 0, 0]);
@@ -314,23 +380,6 @@ export function XRSceneContent({
     const touchState = arTouchRef.current;
     const ZOOM_STEP_PX = 22;
     const TAP_MOVE_THRESHOLD = 10;
-
-    const placeInFrontOfUser = () => {
-      const direction = new THREE.Vector3();
-      camera.getWorldDirection(direction);
-      direction.y = 0;
-      if (direction.lengthSq() < 1e-6) {
-        direction.set(0, 0, -1);
-      } else {
-        direction.normalize();
-      }
-      const target = new THREE.Vector3()
-        .copy(camera.position)
-        .addScaledVector(direction, 1.15);
-      target.y = XR_CLINICAL_ZONE.center[1];
-      setArAnchor([target.x, target.y, target.z]);
-      setArPlaced(true);
-    };
 
     const distanceBetweenTouches = (touches: TouchList) => {
       const a = touches[0];
@@ -406,7 +455,7 @@ export function XRSceneContent({
       );
       const hit = new THREE.Vector3();
       if (!raycaster.ray.intersectPlane(floorPlane, hit)) {
-        placeInFrontOfUser();
+        placeArContentInFrontOfUser();
         return;
       }
       setArAnchor([hit.x, XR_CLINICAL_ZONE.center[1], hit.z]);
@@ -414,7 +463,7 @@ export function XRSceneContent({
     };
 
     if (!arPlaced) {
-      placeInFrontOfUser();
+      placeArContentInFrontOfUser();
     }
 
     element.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -433,7 +482,7 @@ export function XRSceneContent({
       element.removeEventListener("touchcancel", resetPinch);
       resetPinch();
     };
-  }, [arPlaced, camera, gl, isPresenting, onZoomIn, onZoomOut, sceneVariant]);
+  }, [arPlaced, camera, gl, isPresenting, onZoomIn, onZoomOut, placeArContentInFrontOfUser, sceneVariant]);
 
   return (
     <>
@@ -510,6 +559,39 @@ export function XRSceneContent({
                 activeColor="#334155"
                 onSelect={() => onToggleMeshClass("lung_shell")}
               />
+
+              {isArImmersive && (
+                <>
+                  <ImmersiveButton
+                    label="Center"
+                    position={[0, -0.22, 0]}
+                    color="#0369a1"
+                    width={0.28}
+                    onSelect={placeArContentInFrontOfUser}
+                  />
+                  <ImmersiveToggleButton
+                    label="Perf"
+                    active={arQuality === "performance"}
+                    position={[-0.28, -0.4, 0]}
+                    activeColor="#0891b2"
+                    onSelect={() => onArQualityChange("performance")}
+                  />
+                  <ImmersiveToggleButton
+                    label="Bal"
+                    active={arQuality === "balanced"}
+                    position={[0, -0.4, 0]}
+                    activeColor="#0891b2"
+                    onSelect={() => onArQualityChange("balanced")}
+                  />
+                  <ImmersiveToggleButton
+                    label="Qual"
+                    active={arQuality === "quality"}
+                    position={[0.28, -0.4, 0]}
+                    activeColor="#0891b2"
+                    onSelect={() => onArQualityChange("quality")}
+                  />
+                </>
+              )}
             </group>
           )}
 
@@ -517,7 +599,7 @@ export function XRSceneContent({
             ref={meshGroupRef}
             position={meshGroupPosition}
             scale={meshScale}
-            rotation={meshRotation}
+            rotation={meshDisplayRotation}
           >
             <LungMesh
               meshUrl={meshUrl}
@@ -545,7 +627,7 @@ export function XRSceneContent({
               </mesh>
             ))}
 
-            {isVrImmersive && (
+            {isPresenting && (
               <group position={[0, -0.95, 0.05]}>
                 <ImmersiveButton
                   label="↺"
@@ -567,6 +649,27 @@ export function XRSceneContent({
                   color="#334155"
                   width={0.18}
                   onSelect={resetMeshRotation}
+                />
+                <ImmersiveButton
+                  label="⇵"
+                  position={[0, 0.05, 0]}
+                  color="#0369a1"
+                  width={0.22}
+                  onSelect={flipMesh}
+                />
+                <ImmersiveButton
+                  label="+Ecr"
+                  position={[0.75, 0.38, 0]}
+                  color="#0891b2"
+                  width={0.24}
+                  onSelect={addPanel}
+                />
+                <ImmersiveButton
+                  label="Clr"
+                  position={[0.75, 0.05, 0]}
+                  color="#475569"
+                  width={0.18}
+                  onSelect={clearPanels}
                 />
               </group>
             )}
@@ -594,6 +697,14 @@ export function XRSceneContent({
                     title="Tourner le mesh de 90° (sens horaire)"
                   >
                     ↻ 90°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={flipMesh}
+                    className="rounded-md bg-slate-700/80 px-2 py-1 text-[10px] font-bold text-white transition-all hover:bg-slate-600"
+                    title="Retourner le mesh (180°)"
+                  >
+                    ⇵ 180°
                   </button>
                   <button
                     type="button"
@@ -651,6 +762,28 @@ export function XRSceneContent({
             />
           )}
           </group>
+
+          {/* Panels: multiple screens rendered as textured planes in world space */}
+          {isPresenting && panels.length > 0 && (
+            <group name="xr-panels">
+              {panels.map((p, i) => {
+                const x = Math.sin(p.angle) * p.distance;
+                const z = -Math.cos(p.angle) * p.distance;
+                const y = 1.4;
+                const tex = createPanelTexture(p.title);
+                return (
+                  <mesh
+                    key={p.id}
+                    position={[x, y, z]}
+                    rotation={[0, p.angle, 0]}
+                  >
+                    <planeGeometry args={[p.size[0], p.size[1]]} />
+                    <meshBasicMaterial map={tex || undefined} side={THREE.DoubleSide} />
+                  </mesh>
+                );
+              })}
+            </group>
+          )}
         </Suspense>
       </XRControllers>
 
@@ -673,99 +806,23 @@ export function XRSceneContent({
         <Html prepend fullscreen style={{ pointerEvents: "none" }}>
           <p className="fixed bottom-24 left-1/2 z-10 max-w-xs -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 text-center text-[9px] text-slate-400 backdrop-blur-sm">
             {sceneVariant === "vr"
-              ? "Thumbstick move · Desktop panel"
-              : "Pinch zoom · Stack pads · In-world controls"}
+              ? "Thumbstick move · Ray-select controls"
+              : "Pinch zoom · Ray-select · Center to recenter"}
           </p>
         </Html>
       )}
 
-      {isArImmersive && (
-        <Html prepend fullscreen style={{ pointerEvents: "none" }}>
-          <div
-            className="fixed left-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-2 py-0.5 text-[9px] text-slate-300"
-            title={`${arPlaced ? "Anchored" : "Placing"} · ${syncConnected ? "Sync" : "Offline"}`}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${syncConnected ? "bg-indigo-400" : "bg-slate-500"}`}
-              aria-hidden
-            />
-          </div>
-          <div
-            className="fixed right-4 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3"
-            role="group"
-            aria-label="AR view controls"
-          >
-            <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={onZoomIn}
-                  className="h-11 w-11 rounded-full border border-cyan-300/70 bg-cyan-500/85 text-xl font-bold leading-none text-white shadow-lg active:scale-95"
-                  style={{ pointerEvents: "auto" }}
-                  aria-label="Zoom in"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={onZoomOut}
-                  className="h-11 w-11 rounded-full border border-slate-300/70 bg-slate-700/85 text-xl font-bold leading-none text-white shadow-lg active:scale-95"
-                  style={{ pointerEvents: "auto" }}
-                  aria-label="Zoom out"
-                >
-                  -
-                </button>
-              </div>
-            <button
-              type="button"
-              onClick={() => {
-                const direction = new THREE.Vector3();
-                camera.getWorldDirection(direction);
-                direction.y = 0;
-                if (direction.lengthSq() < 1e-6) direction.set(0, 0, -1);
-                direction.normalize();
-                const target = new THREE.Vector3()
-                  .copy(camera.position)
-                  .addScaledVector(direction, 1.15);
-                target.y = XR_CLINICAL_ZONE.center[1];
-                setArAnchor([target.x, target.y, target.z]);
-                setArPlaced(true);
-              }}
-              className="rounded-full border border-sky-300/70 bg-sky-800/85 px-3 py-2 text-[11px] font-semibold text-white shadow-lg active:scale-95"
-              style={{ pointerEvents: "auto" }}
-              aria-label="Recenter content"
-            >
-              Recenter
-            </button>
-            <div className="flex flex-col gap-1.5" role="group" aria-label="Rendering quality">
-              <div
-                className="flex flex-col gap-1 rounded-xl border border-white/20 bg-black/45 p-1"
-                style={{ pointerEvents: "auto" }}
-              >
-                {(["performance", "balanced", "quality"] as const).map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => onArQualityChange(preset)}
-                    className={`rounded-lg px-2 py-1 text-[10px] font-semibold capitalize ${
-                      arQuality === preset
-                        ? "bg-cyan-500/80 text-white"
-                        : "bg-slate-700/70 text-slate-100"
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          {!arPlaced && (
-            <div className="fixed bottom-28 left-1/2 z-20 w-[min(88vw,18rem)] -translate-x-1/2 rounded-md border border-cyan-500/30 bg-cyan-950/75 px-3 py-2 text-center text-[10px] leading-snug text-cyan-100/95">
-              Stabilize tracking, then Recenter.
-            </div>
-          )}
-        </Html>
+      {isArImmersive && !arPlaced && (
+        <Text
+          position={[clinicalZonePosition[0], clinicalZonePosition[1] + 1.1, clinicalZonePosition[2]]}
+          fontSize={0.045}
+          color="#a5f3fc"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={2.2}
+        >
+          Stabilize tracking, then Center
+        </Text>
       )}
     </>
   );

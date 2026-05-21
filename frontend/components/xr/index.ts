@@ -7,6 +7,7 @@ export { XRSceneContent } from "./xr-scene-content";
 export { XrLabHeader } from "./xr-lab-header";
 export { XrMetricsPanel } from "./xr-metrics-panel";
 export { XrStatusOverlays } from "./xr-status-overlays";
+export { XrImmersiveHud } from "./xr-immersive-hud";
 export {
   XrBottomToolbar,
   parseXrToolbarDock,

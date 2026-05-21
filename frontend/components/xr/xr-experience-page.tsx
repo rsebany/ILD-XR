@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { XR, createXRStore } from "@react-three/xr";
@@ -15,7 +15,8 @@ import {
 import { XrLabHeader } from "./xr-lab-header";
 import { XrMetricsPanel } from "./xr-metrics-panel";
 import { XrStatusOverlays } from "./xr-status-overlays";
-import { useWebXrSessionSupport, useXrStudyData } from "@/hooks/xr";
+import { useWebXrSessionSupport, useXrPresenting, useXrStudyData } from "@/hooks/xr";
+import { XrImmersiveHud } from "./xr-immersive-hud";
 
 export type XrExperienceMode = "vr" | "ar";
 export type ArQualityPreset = "performance" | "balanced" | "quality";
@@ -34,6 +35,7 @@ type Props = {
 
 export function XrExperiencePage({ mode }: Props) {
   const searchParams = useSearchParams();
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const studyId = searchParams.get("studyId");
@@ -89,14 +91,33 @@ export function XrExperiencePage({ mode }: Props) {
 
   const sessionMode = mode === "ar" ? "immersive-ar" : "immersive-vr";
   const isImmersiveSupported = useWebXrSessionSupport(sessionMode);
-  // Same store options for AR and VR so immersive sessions behave consistently.
   const store = useMemo(
     () =>
       createXRStore({
-        offerSession: false,
+        offerSession: isImmersiveSupported ? sessionMode : false,
+        // Avoid dynamic import of @pmndrs/xr emulate.js (ChunkLoadError on Next dev).
+        emulate: false,
       }),
-    [mode],
+    [isImmersiveSupported, sessionMode],
   );
+  const isPresenting = useXrPresenting(store);
+  const preloadOnSessionRef = useRef(false);
+
+  useEffect(() => {
+    return store.subscribe((state, prev) => {
+      if (prev.session == null && state.session != null && !preloadOnSessionRef.current) {
+        preloadOnSessionRef.current = true;
+        void preloadXrSessionAssets({
+          studyId,
+          meshUrl: effectiveMeshUrl,
+          dicomSlice: currentDicomSlice,
+        }).catch((err) => console.warn("XR preload on session start:", err));
+      }
+      if (state.session == null) {
+        preloadOnSessionRef.current = false;
+      }
+    });
+  }, [store, studyId, effectiveMeshUrl, currentDicomSlice]);
   const applyAllOnPreset = () => setMeshClassVisibility(DEFAULT_MESH_CLASS_VISIBILITY);
   const applyLesionsOnlyPreset = () =>
     setMeshClassVisibility({
@@ -177,23 +198,50 @@ export function XrExperiencePage({ mode }: Props) {
     await runEnterImmersive();
   };
 
+  const handleExitImmersive = () => {
+    void store.getState().session?.end();
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      const el = containerRef.current ?? document.documentElement;
+      if (el.requestFullscreen) {
+        // Prefer element fullscreen to hide browser UI while keeping app layout
+        // If the device blocks fullscreen for cross-origin iframes, fallback to documentElement
+        await (el as Element).requestFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Fullscreen request failed:", err);
+    }
+  };
+
   return (
-    <div className="relative h-dvh min-h-dvh w-full overflow-hidden bg-transparent">
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 pb-3 pt-[calc(var(--safe-area-top)+0.75rem)] sm:p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <XrLabHeader studyId={studyId} syncConnected={syncConnected} />
-          {metrics && <XrMetricsPanel metrics={metrics} />}
+    <div ref={containerRef} className="relative h-dvh min-h-dvh w-full overflow-hidden bg-transparent">
+      {!isPresenting && (
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 pb-3 pt-[calc(var(--safe-area-top)+0.75rem)] sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <XrLabHeader studyId={studyId} syncConnected={syncConnected} />
+            {metrics && <XrMetricsPanel metrics={metrics} />}
+          </div>
         </div>
-      </div>
+      )}
 
       <XrStatusOverlays
         xrError={xrError}
         meshError={meshError}
-        isLoading={isLoading || preparingImmersive}
+        isLoading={isLoading || (preparingImmersive && !isPresenting)}
         studyId={studyId}
       />
 
-      {preparingImmersive && (
+      {isPresenting && <XrImmersiveHud mode={mode} onExit={handleExitImmersive} />}
+
+      {preparingImmersive && !isPresenting && (
         <div className="pointer-events-none absolute inset-x-0 bottom-28 z-30 flex justify-center">
           <p className="rounded-full border border-cyan-500/40 bg-black/70 px-3 py-1 text-[11px] font-medium text-cyan-200">
             Preparing VR…
@@ -201,6 +249,7 @@ export function XrExperiencePage({ mode }: Props) {
         </div>
       )}
 
+      {!isPresenting && (
       <XrBottomToolbar
         onFocusStack={() => setFocusStackNonce((v) => v + 1)}
         onFocusMesh={() => setFocusMeshNonce((v) => v + 1)}
@@ -215,11 +264,13 @@ export function XrExperiencePage({ mode }: Props) {
           setMeshClassVisibility((prev) => ({ ...prev, [key]: !prev[key] }))
         }
         onEnterImmersiveCentered={handleEnterImmersive}
+        onToggleFullscreen={toggleFullscreen}
         alternateLabHref={alternateLabHref}
         alternateLabShortLabel={alternateLabShortLabel}
         immersiveMode={mode}
         isImmersiveSupported={isImmersiveSupported}
       />
+      )}
 
       <div className="absolute inset-0 z-0 touch-none">
         <Canvas

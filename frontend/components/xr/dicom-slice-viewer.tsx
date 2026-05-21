@@ -57,8 +57,8 @@ export function DicomSliceViewer({
   } | null>(null);
   const xr = useXR();
   const isPresenting = Boolean(xr.session);
-  const isVrImmersive = isPresenting && sceneVariant === "vr";
-  const useHtmlControls = !isVrImmersive;
+  const useImmersiveControls = isPresenting;
+  const useHtmlControls = !isPresenting;
   const loaderRef = useRef<THREE.TextureLoader | null>(null);
   const textureCacheRef = useRef(new Map<number, THREE.Texture>());
   const pendingLoadsRef = useRef(new Map<number, Promise<THREE.Texture>>());
@@ -269,7 +269,7 @@ export function DicomSliceViewer({
   }, []);
 
   if (loading && !texture) {
-    if (isVrImmersive) {
+    if (useImmersiveControls) {
       return (
         <group position={position}>
           <mesh>
@@ -331,36 +331,10 @@ export function DicomSliceViewer({
               </Html>
             ) : null}
 
-            {isPresenting && !isVrImmersive && (
-              <Billboard position={[0.95, 0, 0]} follow={true}>
-                <group>
-                  <mesh
-                    position={[0, 0.22, 0]}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      handlePrevSlice();
-                    }}
-                  >
-                    <planeGeometry args={[0.32, 0.32]} />
-                    <meshBasicMaterial color="#1e3a8a" />
-                  </mesh>
-                  <mesh
-                    position={[0, -0.22, 0]}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      handleNextSlice();
-                    }}
-                  >
-                    <planeGeometry args={[0.32, 0.32]} />
-                    <meshBasicMaterial color="#1d4ed8" />
-                  </mesh>
-                </group>
-              </Billboard>
-            )}
           </>
         )}
 
-        {isVrImmersive && (
+        {useImmersiveControls && (
           <group position={[0, -0.95, 0.05]}>
             <Text position={[0, 0.22, 0.02]} fontSize={0.038} color="#93c5fd" anchorX="center" anchorY="middle">
               {`${currentSlice + 1} / ${maxSlices}`}
