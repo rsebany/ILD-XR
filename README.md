@@ -247,5 +247,4 @@ This work is based on [“Charité University Hospital - Operating Room”](http
 
 ### Other UI assets
 
-Raster files such as `frontend/public/assets/background.png` and `frontend/public/assets/logo.png` are project UI assets.#   I L D - X R  
- 
+Raster files such as `frontend/public/assets/background.png` and `frontend/public/assets/logo.png` are project UI assets.
