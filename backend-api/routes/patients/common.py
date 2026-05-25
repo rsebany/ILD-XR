@@ -1,10 +1,14 @@
+"""Patient ORM → API schema mapping and display-name rules."""
+
 from __future__ import annotations
-from datetime import date
 
 from models.models import PatientORM
 from schemas import Patient
-from services.patients.ids import generate_patient_external_id  # noqa: F401  # re-export
+from services.patients.ids import generate_patient_external_id  # noqa: F401 — re-export
 
+# ---------------------------------------------------------------------------
+# Display name
+# ---------------------------------------------------------------------------
 
 _PLACEHOLDER_DISPLAY_NAMES = frozenset(
     {
@@ -27,40 +31,50 @@ def _resolve_patient_name(name: str | None, external_id: str) -> str:
     return normalized
 
 
+# ---------------------------------------------------------------------------
+# Schema mapping
+# ---------------------------------------------------------------------------
+
+
+def _segmentation_summary_dict(seg) -> dict:
+    xr = seg.xr_view if seg else None
+    return {
+        "id": seg.external_id,
+        "total_ild_volume_ml": seg.total_ild_volume_ml,
+        "lung_volume_ml": seg.lung_volume_ml,
+        "ild_burden": seg.ild_fraction,
+        "ggo_volume_ml": seg.ggo_volume_ml,
+        "reticulation_volume_ml": seg.reticulation_volume_ml,
+        "consolidation_volume_ml": seg.consolidation_volume_ml,
+        "ggo_burden": seg.ggo_burden,
+        "reticulation_burden": seg.reticulation_burden,
+        "consolidation_burden": seg.consolidation_burden,
+        "zonal_distribution": seg.zonal_distribution or {},
+        "mesh_url": seg.mesh_url,
+        "xr_view": {
+            "id": xr.external_id if xr else f"xr-{seg.external_id}",
+            "mesh_url": seg.mesh_url,
+            "clipping_enabled": bool(xr.clipping_enabled) if xr else True,
+        },
+        "visualization_mode": getattr(seg, "visualization_mode", "mixed"),
+        "dice_score": seg.dice_score,
+    }
+
+
 def patient_orm_to_schema(p: PatientORM) -> Patient:
     studies = []
     for st in p.studies or []:
         seg = st.segmentation
-        xr = seg.xr_view if seg else None
-
-        studies.append({
-            "id": st.external_id,
-            "patient_id": p.external_id,
-            "description": st.description,
-            "created_at": st.created_at.isoformat() if st.created_at else None,
-            "modality": getattr(st, "modality", "ct"),
-            "segmentation": None if not seg else {
-                "id": seg.external_id,
-                "total_ild_volume_ml": seg.total_ild_volume_ml,
-                "lung_volume_ml": seg.lung_volume_ml,
-                "ild_burden": seg.ild_fraction,
-                "ggo_volume_ml": seg.ggo_volume_ml,
-                "reticulation_volume_ml": seg.reticulation_volume_ml,
-                "consolidation_volume_ml": seg.consolidation_volume_ml,
-                "ggo_burden": seg.ggo_burden,
-                "reticulation_burden": seg.reticulation_burden,
-                "consolidation_burden": seg.consolidation_burden,
-                "zonal_distribution": seg.zonal_distribution or {},
-                "mesh_url": seg.mesh_url,
-                "xr_view": {
-                    "id": xr.external_id if xr else f"xr-{seg.external_id}",
-                    "mesh_url": seg.mesh_url,
-                    "clipping_enabled": bool(xr.clipping_enabled) if xr else True,
-                },
-                "visualization_mode": getattr(seg, "visualization_mode", "mixed"),
-                "dice_score": seg.dice_score,
-            },
-        })
+        studies.append(
+            {
+                "id": st.external_id,
+                "patient_id": p.external_id,
+                "description": st.description,
+                "created_at": st.created_at.isoformat() if st.created_at else None,
+                "modality": getattr(st, "modality", "ct"),
+                "segmentation": None if not seg else _segmentation_summary_dict(seg),
+            }
+        )
 
     return Patient(
         id=p.external_id,
@@ -71,4 +85,4 @@ def patient_orm_to_schema(p: PatientORM) -> Patient:
     )
 
 
-__all__ = ["generate_patient_external_id", "patient_orm_to_schema"]
+__all__ = ["generate_patient_external_id", "patient_orm_to_schema", "_resolve_patient_name"]

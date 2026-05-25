@@ -1,9 +1,11 @@
+/**
+ * XR hub — choose VR headset or AR / passthrough (preserves query string).
+ */
 "use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-/** Pick VR or AR; query string (e.g. `studyId`) is preserved. */
 export default function XrHubPage() {
   const searchParams = useSearchParams();
   const q = searchParams.toString();
@@ -11,7 +13,9 @@ export default function XrHubPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-black px-6 py-12">
-      <h1 className="text-lg font-semibold text-white">How do you want to view?</h1>
+      <h1 className="text-lg font-semibold text-white">
+        How do you want to view?
+      </h1>
 
       <div className="flex w-full max-w-sm flex-col gap-3 sm:flex-row">
         <Link

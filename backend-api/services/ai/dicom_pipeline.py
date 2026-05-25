@@ -1,12 +1,9 @@
 """DICOM → segmentation mask pipeline — ILD v2.2.
 
 End-to-end flow:
-    DICOM series → HU volume (Z,Y,X) → preprocess_volume_v2 → 2-channel stack
+    DICOM series → HU volume (Z,Y,X) → preprocess_volume → 2-channel stack
     → tensor sliding-window inference → threshold_predict → uint8 mask (Z,Y,X)
 
-The v2.2 pipeline eliminates the intermediate HWD ↔ ZYX axis conversion that
-was required by the old single-channel workflow.  All arrays stay in ZYX / DHW
-order throughout.
 """
 from __future__ import annotations
 
@@ -49,7 +46,7 @@ def process_dicom_zip_dir(
         volume: Raw HU volume (Z, Y, X) at native resolution.
         lung_mask: Binary lung mask on the native DICOM grid (Z, Y, X).
     """
-    # ── 1. Read and sort DICOM slices ────────────────────────────────────────
+    # --- 1. Read and sort DICOM slices ---
     try:
         slices = read_sorted_dicom_slices(dir_path, include_dicom_ext=True)
     except Exception as exc:
@@ -74,23 +71,23 @@ def process_dicom_zip_dir(
 
     native_shape = volume.shape  # (Z, Y, X) at original resolution
 
-    # ── 2. v2.2 preprocessing — stays in ZYX throughout ──────────────────────
+    # --- 2. Preprocess (ZYX throughout) ---
     try:
-        processed_stack, lung_mask_iso = bootstrap.preprocess_volume_v2(
+        processed_stack, lung_mask_iso = bootstrap.preprocess_volume(
             volume, orig_spacing
         )
         logger.debug(
-            "preprocess_volume_v2 OK: stack=%s lung_mask=%s",
+            "preprocess_volume OK: stack=%s lung_mask=%s",
             processed_stack.shape,
             lung_mask_iso.shape,
         )
     except Exception as exc:
         logger.warning(
-            "preprocess_volume_v2 failed (%s); using fallback normalisation",
+            "preprocess_volume failed (%s); using fallback normalisation",
             type(exc).__name__,
         )
         try:
-            processed_stack, lung_mask_iso = bootstrap.preprocess_volume_v2(
+            processed_stack, lung_mask_iso = bootstrap.preprocess_volume(
                 volume, orig_spacing
             )
         except Exception:
@@ -101,7 +98,7 @@ def process_dicom_zip_dir(
             processed_stack = np.stack([hu_norm, var_ch], axis=0)
             lung_mask_iso = lung_mask_from_hu(volume)
 
-    # ── 3. Sliding-window inference ───────────────────────────────────────────
+    # --- 3. Sliding-window inference ---
     try:
         mask = sliding_window_inference(
             processed_stack,
@@ -111,7 +108,7 @@ def process_dicom_zip_dir(
     except Exception as exc:
         raise DicomInputError(f"Inference failed on normalized volume: {exc}") from exc
 
-    # ── 4. Resample mask → native DICOM grid ─────────────────────────────────
+    # --- 4. Resample mask to native DICOM grid ---
     if mask.shape != native_shape:
         logger.debug(
             "Resampling mask %s → native grid %s", mask.shape, native_shape
@@ -122,7 +119,7 @@ def process_dicom_zip_dir(
             logger.exception("mask remap failed; returning zero mask")
             mask = np.zeros(native_shape, dtype=np.uint8)
 
-    # ── 5. Optional morphological postprocessing ──────────────────────────────
+    # --- 5. Optional morphological postprocess ---
     if apply_postprocess:
         try:
             mask = bootstrap.postprocess_mask(
@@ -144,7 +141,7 @@ def process_dicom_zip_dir(
         int(_bc[3]),
     )
 
-    # ── 6. Resample lung mask → native grid ──────────────────────────────────
+    # --- 6. Resample lung mask to native grid ---
     try:
         if lung_mask_iso.shape != native_shape:
             lung_mask = resample_mask_to_shape(
@@ -157,3 +154,6 @@ def process_dicom_zip_dir(
         lung_mask = lung_mask_from_hu(volume)
 
     return mask, orig_spacing, volume, lung_mask
+
+
+__all__ = ["process_dicom_zip_dir"]

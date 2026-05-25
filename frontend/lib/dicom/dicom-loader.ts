@@ -1,8 +1,8 @@
-export type Orientation = "axial" | "coronal" | "sagittal";
+export type { Orientation } from "./volume-parse";
 export type Colormap = "grayscale";
 
-import type { ParsedDicom } from "@/components/features/viewer/types";
-import { parseVolume } from "@/components/features/viewer/types";
+import type { Orientation, ParsedDicom } from "./volume-parse";
+import { parseVolume } from "./volume-parse";
 
 export type ViewerState = {
   /** [depth, height, width] */

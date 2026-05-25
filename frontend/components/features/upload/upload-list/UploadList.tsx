@@ -3,18 +3,10 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Search,
-  UserPlus,
-  Activity,
   Eye,
   Edit2,
   Trash2,
   MoreHorizontal,
-  UploadCloud,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UploadListPagination } from "./UploadListPagination";
+import { UploadListToolbar } from "./UploadListToolbar";
+import { getInitials, statusColor } from "./upload-list-utils";
 
 export type UploadListPatient = {
   id: string;
@@ -120,91 +115,15 @@ export function UploadList({
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, currentPage, pageSize]);
 
-  const getInitials = (name: string) =>
-    name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
-  const statusColor = (status: string) => {
-    if (status === "Analyzed" || status === "Active" || status === "Confirmed")
-      return "text-emerald-400";
-    if (status === "Pending" || status === "Not Connected")
-      return "text-amber-400";
-    return "text-slate-400";
-  };
-
   return (
     <div className="flex flex-1 flex-col">
-      {/* Tabs */}
-      <div className="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-3 md:flex-row md:items-center md:justify-between">
-        <nav className="flex gap-4 sm:gap-6" aria-label="Tabs">
-          {(
-            [
-              { id: "all", label: "All" },
-              { id: "patients", label: "Patients" },
-              { id: "studies", label: "Studies" },
-            ] as const
-          ).map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setActiveTab(id);
-                setPage(1);
-              }}
-              className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
-                activeTab === id
-                  ? "border-emerald-500 text-slate-50"
-                  : "border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-300"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900/70 pl-9 pr-3 text-sm text-slate-50 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 sm:w-64"
-            />
-          </div>
-          <Link href="/upload-dicom">
-            <Button
-              variant="outline"
-              className="gap-2 border-emerald-600/60 bg-slate-900/80 text-emerald-300 hover:bg-emerald-900/30"
-            >
-              <UploadCloud className="h-4 w-4" />
-              Upload DICOM
-            </Button>
-          </Link>
-          <Link href={activeTab === "studies" ? "/studies" : "/patients"}>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              {activeTab === "studies" ? (
-                <>
-                  <Activity className="h-4 w-4" />
-                  Create Study
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-4 w-4" />
-                  Add Patient
-                </>
-              )}
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <UploadListToolbar
+        activeTab={activeTab}
+        search={search}
+        onTabChange={setActiveTab}
+        onSearchChange={setSearch}
+        onResetPage={() => setPage(1)}
+      />
 
       {/* Table */}
       <div className="flex-1 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
@@ -313,75 +232,11 @@ export function UploadList({
         )}
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-400">
-          Page {currentPage} of {totalPages}
-        </p>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-10 w-10 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
-            onClick={() => setPage(1)}
-            disabled={currentPage <= 1}
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-10 w-10 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1 px-2">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let p = currentPage;
-              if (totalPages <= 5) p = i + 1;
-              else if (currentPage <= 3) p = i + 1;
-              else if (currentPage >= totalPages - 2)
-                p = totalPages - 4 + i;
-              else p = currentPage - 2 + i;
-              return (
-                <Button
-                  key={p}
-                  variant={p === currentPage ? "default" : "outline"}
-                  size="icon"
-                  className={`h-10 w-10 ${
-                    p === currentPage
-                      ? "bg-emerald-600 hover:bg-emerald-700"
-                      : "border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                  onClick={() => setPage(p)}
-                >
-                  {p}
-                </Button>
-              );
-            })}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-10 w-10 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-10 w-10 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
-            onClick={() => setPage(totalPages)}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <UploadListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

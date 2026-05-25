@@ -1,3 +1,6 @@
+/**
+ * WebXR AR session — passthrough lung mesh review.
+ */
 "use client";
 
 import { XrExperiencePage } from "@/components/xr/xr-experience-page";

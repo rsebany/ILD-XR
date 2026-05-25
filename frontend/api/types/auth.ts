@@ -1,3 +1,11 @@
+/**
+ * Auth types — users, credentials, tokens (aligned with `backend-api` auth schemas).
+ */
+
+// ---------------------------------------------------------------------------
+// User & role
+// ---------------------------------------------------------------------------
+
 export type UserRole = string;
 
 export interface User {
@@ -7,6 +15,10 @@ export interface User {
   email: string;
   role: UserRole;
 }
+
+// ---------------------------------------------------------------------------
+// Request payloads
+// ---------------------------------------------------------------------------
 
 export interface SignupRequest {
   full_name: string;
@@ -20,14 +32,18 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface ForgotPasswordResponse {
-  message: string;
-  reset_url?: string;
-}
-
 export interface ResetPasswordRequest {
   token: string;
   new_password: string;
+}
+
+// ---------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------
+
+export interface ForgotPasswordResponse {
+  message: string;
+  reset_url?: string;
 }
 
 export interface AuthResponse {
@@ -35,4 +51,3 @@ export interface AuthResponse {
   token_type: string;
   user: User;
 }
-

@@ -22,3 +22,6 @@ def load_torch_checkpoint(path: PathLike, *, map_location: Any = None) -> Any:
         return torch.load(p, map_location=map_location, weights_only=False)
     except TypeError:
         return torch.load(p, map_location=map_location)
+
+
+__all__ = ["load_torch_checkpoint"]

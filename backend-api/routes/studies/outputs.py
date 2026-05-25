@@ -1,9 +1,12 @@
+"""Study outputs: mesh URL, mask bytes, DICOM shape, expert-compare mesh."""
+
 from __future__ import annotations
-from io import BytesIO
+
 import re
+from io import BytesIO
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from models.db import get_session
@@ -19,12 +22,22 @@ from .common import (
     _load_dicom_volume_and_slices,
 )
 
+# ---------------------------------------------------------------------------
+# Router & constants
+# ---------------------------------------------------------------------------
+
 router = APIRouter(prefix="/studies", tags=["studies"])
+
 _MASK_LABEL_SEMANTICS = "0=background,1=ggo,2=reticulation,3=consolidation"
 
 
+# ---------------------------------------------------------------------------
+# Mask normalization
+# ---------------------------------------------------------------------------
+
+
 def _normalize_volume_to_classes_123(raw_volume: np.ndarray) -> tuple[np.ndarray, bool]:
-    """Normalize arbitrary integer labels to model classes {0,1,2,3}."""
+    """Map arbitrary integer labels to model classes {0,1,2,3}."""
     v = np.asarray(raw_volume, dtype=np.uint8, copy=False)
     if v.ndim != 3:
         raise ValueError(f"Expected 3D mask volume, got shape={v.shape}")
@@ -68,48 +81,62 @@ def _normalize_volume_to_classes_123(raw_volume: np.ndarray) -> tuple[np.ndarray
     return out, True
 
 
-@router.get(
-    "/{study_id}/mesh",
-    summary="3D mesh URL (GLB) for XR / viewer",
-    name="studies_mesh_url",
-)
-async def get_study_mesh(study_id: str):
-    """
-    Return mesh URL for a given study.
-    Used by XR frontend via studyService.getMeshUrl.
-    """
-    if study_id in _analysis_cache and "mesh_url" in _analysis_cache[study_id]:
-        mesh_url = _analysis_cache[study_id]["mesh_url"]
-        if not isinstance(mesh_url, str) or not mesh_url.strip():
-            raise HTTPException(status_code=404, detail="Mesh not found for this study")
-        return {"mesh_url": mesh_url}
-
-    with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if not (study and study.segmentation and study.segmentation.mesh_url):
-            raise HTTPException(status_code=404, detail="Mesh not found for this study")
-        return {"mesh_url": study.segmentation.mesh_url}
+def _mask_streaming_response(arr: np.ndarray) -> StreamingResponse:
+    shape = arr.shape
+    return StreamingResponse(
+        BytesIO(arr.tobytes()),
+        media_type="application/octet-stream",
+        headers={
+            "X-Mask-Shape": ",".join(str(int(x)) for x in shape),
+            "X-Mask-Label-Semantics": _MASK_LABEL_SEMANTICS,
+        },
+    )
 
 
 def _safe_study_file_token(study_id: str) -> str:
     return re.sub(r"[^a-zA-Z0-9._-]+", "_", study_id).strip("_") or "study"
 
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{study_id}/mesh",
+    summary="3D mesh URL (GLB) for XR / viewer",
+    name="studies_mesh_url",
+)
+async def get_study_mesh(study_id: str) -> dict:
+    if study_id in _analysis_cache and "mesh_url" in _analysis_cache[study_id]:
+        mesh_url = _analysis_cache[study_id]["mesh_url"]
+        if not isinstance(mesh_url, str) or not mesh_url.strip():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesh not found for this study")
+        return {"mesh_url": mesh_url}
+
+    with get_session() as session:
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        if not (study and study.segmentation and study.segmentation.mesh_url):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesh not found for this study")
+        return {"mesh_url": study.segmentation.mesh_url}
+
+
+# ---------------------------------------------------------------------------
+# Expert-compare artifacts (after POST …/expert-mask-compare)
+# ---------------------------------------------------------------------------
+
+
 @router.get(
     "/{study_id}/expert-compare/expert-mesh",
-    summary="GLB mesh from last expert DICOM compare (requires expert_compare.npy)",
+    summary="GLB mesh from last expert DICOM compare",
     name="studies_expert_compare_expert_mesh",
 )
-async def get_expert_compare_expert_mesh(study_id: str):
-    """
-    Build (or reuse cached) GLB for the expert label volume saved at
-    ``data/masks/{study_id}.expert_compare.npy`` after **Expert mask vs AI** compare.
-    Same node naming as the AI mesh so the 3D viewer toggles apply.
-    """
+async def get_expert_compare_expert_mesh(study_id: str) -> dict:
+    """Build or return cached GLB from ``{study_id}.expert_compare.npy`` (remapped expert labels)."""
     npy_path = MASK_STORAGE / f"{study_id}.expert_compare.npy"
     if not npy_path.is_file():
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="No expert compare volume. Run expert mask compare on Upload DICOM first.",
         )
 
@@ -129,12 +156,12 @@ async def get_expert_compare_expert_mesh(study_id: str):
 
     study_dicom_dir = _ensure_study_dicom_dir(study_id)
     if not study_dicom_dir.exists():
-        raise HTTPException(status_code=404, detail="DICOM data not found on disk")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
 
     try:
         volume, slices = _load_dicom_volume_and_slices(study_dicom_dir)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     slope = float(getattr(slices[0], "RescaleSlope", 1.0))
     intercept = float(getattr(slices[0], "RescaleIntercept", 0.0))
@@ -164,7 +191,6 @@ async def get_expert_compare_expert_mesh(study_id: str):
             status_code=422,
             detail="Expert mask produced an empty mesh (no foreground voxels to surface).",
         )
-
     return {"mesh_url": mesh_url}
 
 
@@ -178,64 +204,35 @@ async def get_study_mask(study_id: str):
     if mask_path.exists():
         arr = np.load(mask_path).astype("uint8")
         if arr.ndim != 3:
-            raise HTTPException(
-                status_code=500,
-                detail="Stored mask on disk has invalid shape; expected 3D volume.",
-            )
-
+            raise HTTPException(status_code=500, detail="Stored mask on disk has invalid shape; expected 3D volume.")
         arr, changed = _normalize_volume_to_classes_123(arr)
         if changed:
             np.save(mask_path, arr)
-
-        shape = arr.shape
-        buf = BytesIO(arr.tobytes())
-        return StreamingResponse(
-            buf,
-            media_type="application/octet-stream",
-            headers={
-                "X-Mask-Shape": ",".join(str(int(x)) for x in shape),
-                "X-Mask-Label-Semantics": _MASK_LABEL_SEMANTICS,
-            },
-        )
+        return _mask_streaming_response(arr)
 
     with get_session() as session:
         study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
         if study and study.segmentation and study.segmentation.mask_bytes:
             seg = study.segmentation
             if not seg.mask_shape:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Mask shape metadata missing for this study.",
-                )
+                raise HTTPException(status_code=422, detail="Mask shape metadata missing for this study.")
 
             parts = [p.strip() for p in seg.mask_shape.split(",") if p.strip()]
             if len(parts) != 3:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Mask shape metadata invalid for this study.",
-                )
+                raise HTTPException(status_code=422, detail="Mask shape metadata invalid for this study.")
 
             try:
                 d, h, w = (int(p) for p in parts)
             except ValueError:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Mask shape metadata contains non-integer values.",
-                )
+                raise HTTPException(status_code=422, detail="Mask shape metadata contains non-integer values.")
 
             if d <= 0 or h <= 0 or w <= 0:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Mask shape metadata must be positive.",
-                )
+                raise HTTPException(status_code=422, detail="Mask shape metadata must be positive.")
 
             raw = bytes(seg.mask_bytes)
             expected_len = d * h * w
             if len(raw) != expected_len:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Mask bytes length does not match reported shape.",
-                )
+                raise HTTPException(status_code=422, detail="Mask bytes length does not match reported shape.")
 
             arr = np.frombuffer(raw, dtype=np.uint8).reshape(d, h, w)
             arr, _changed = _normalize_volume_to_classes_123(arr)
@@ -244,41 +241,18 @@ async def get_study_mask(study_id: str):
             seg.mask_path = str(disk_path)
             seg.mask_bytes = None
             seg.mask_shape = None
-            session.commit()
-
-            shape = (d, h, w)
-            return StreamingResponse(
-                BytesIO(arr.tobytes()),
-                media_type="application/octet-stream",
-                headers={
-                    "X-Mask-Shape": ",".join(str(int(x)) for x in shape),
-                    "X-Mask-Label-Semantics": _MASK_LABEL_SEMANTICS,
-                },
-            )
+            return _mask_streaming_response(arr)
 
     if study_id in _analysis_cache and "mask" in _analysis_cache[study_id]:
         arr = _analysis_cache[study_id]["mask"].astype("uint8")
         if not isinstance(arr, np.ndarray) or arr.ndim != 3:
-            raise HTTPException(
-                status_code=500,
-                detail="Cached mask has invalid shape; expected 3D volume.",
-            )
-
+            raise HTTPException(status_code=500, detail="Cached mask has invalid shape; expected 3D volume.")
         arr, changed = _normalize_volume_to_classes_123(arr)
         if changed:
             _analysis_cache[study_id]["mask"] = arr
+        return _mask_streaming_response(arr)
 
-        shape = arr.shape
-        return StreamingResponse(
-            BytesIO(arr.tobytes()),
-            media_type="application/octet-stream",
-            headers={
-                "X-Mask-Shape": ",".join(str(int(x)) for x in shape),
-                "X-Mask-Label-Semantics": _MASK_LABEL_SEMANTICS,
-            },
-        )
-
-    raise HTTPException(status_code=404, detail="Mask not available")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mask not available")
 
 
 @router.get(
@@ -287,18 +261,14 @@ async def get_study_mask(study_id: str):
     summary="Native DICOM volume shape + spacing (not mask grid)",
     name="studies_dicom_shape",
 )
-async def get_study_dicom_shape(study_id: str):
-    """
-    Axial slice count and in-plane size from stored DICOM (not the isotropic mask).
-    Use this for navigation alongside GET .../slices/{z_index}, which indexes this volume.
-    """
+async def get_study_dicom_shape(study_id: str) -> DicomVolumeShape:
     study_dicom_dir = _ensure_study_dicom_dir(study_id)
     if not study_dicom_dir.exists():
-        raise HTTPException(status_code=404, detail="DICOM data not found on disk")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
     try:
         volume, dicom_slices = _load_dicom_volume_and_slices(study_dicom_dir)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     d, h, w = volume.shape
     sz, sy, sx = _dicom_series_spacing_mm(dicom_slices)
     return DicomVolumeShape(

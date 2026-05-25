@@ -1,3 +1,5 @@
+"""Study upload and expert-mask comparison endpoints."""
+
 from __future__ import annotations
 
 import logging
@@ -5,11 +7,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from auth import get_current_user, TokenPayload
+from auth import TokenPayload, get_current_user
 from schemas import ExpertMaskCompareResponse, UploadStudyResponse
+from services.studies.analysis_state import MASK_STORAGE
 from services.studies.expert_mask_compare import run_expert_mask_compare_from_upload
 from services.studies.upload import upload_study_impl
-from services.studies.analysis_state import MASK_STORAGE
 
 from .common import (
     BASE_DIR,
@@ -19,7 +21,52 @@ from .common import (
     _legacy_patient_json,
 )
 
+# ---------------------------------------------------------------------------
+# Router
+# ---------------------------------------------------------------------------
+
 router = APIRouter(prefix="/studies", tags=["studies"])
+_log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _close_upload_parts(
+    file: UploadFile | None,
+    files: list[UploadFile] | None,
+    *,
+    log_label: str,
+) -> None:
+    if file is not None:
+        try:
+            await file.close()
+        except Exception:
+            _log.debug("%s file.close failed", log_label, exc_info=True)
+    if files:
+        for part in files:
+            try:
+                await part.close()
+            except Exception:
+                _log.debug("%s part.close failed", log_label, exc_info=True)
+
+
+def _build_study_description(
+    study_description: str | None,
+    modality: str | None,
+) -> str | None:
+    if not modality:
+        return study_description
+    description = (study_description or "").strip()
+    modality_txt = modality.strip()
+    return f"{description} [{modality_txt}]".strip() if description else f"[{modality_txt}]"
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 
 @router.post(
@@ -28,10 +75,8 @@ router = APIRouter(prefix="/studies", tags=["studies"])
     name="studies_upload_expert_mask_compare",
     summary="Compare expert mask DICOMs to stored AI prediction",
     description=(
-        "Upload a ZIP or multiple DICOM slices of an **expert / reference label map** (0–3 per voxel, "
-        "same convention as AI: 0=background, 1=GGO, 2=reticulation, 3=consolidation). "
-        "Slices are sorted by ``ImagePositionPatient`` like the CT series. "
-        "The volume must match the shape of the prediction mask already stored for ``study_id``."
+        "Upload a ZIP or multiple DICOM slices of an expert label map (0–3 per voxel). "
+        "Volume must match the stored prediction mask shape for ``study_id``."
     ),
 )
 async def compare_expert_mask_to_prediction(
@@ -56,21 +101,7 @@ async def compare_expert_mask_to_prediction(
         )
         return ExpertMaskCompareResponse.model_validate(payload)
     finally:
-        if file is not None:
-            try:
-                await file.close()
-            except Exception:
-                logging.getLogger(__name__).debug(
-                    "expert-mask-compare file.close failed", exc_info=True
-                )
-        if files:
-            for part in files:
-                try:
-                    await part.close()
-                except Exception:
-                    logging.getLogger(__name__).debug(
-                        "expert-mask-compare part.close failed", exc_info=True
-                    )
+        await _close_upload_parts(file, files, log_label="expert-mask-compare")
 
 
 @router.post(
@@ -79,18 +110,17 @@ async def compare_expert_mask_to_prediction(
     name="studies_upload_dicom",
     summary="Ingest DICOM, run ILD analysis, persist study",
     description=(
-        "One endpoint for all DICOM intakes. Send **either** a single `file` (`.zip` of a series) "
-        "**or** multiple `files` (`.dcm` / `.dicom`). A browser “folder” is the same as multiple `files`."
+        "Send either a single `file` (.zip) or multiple `files` (.dcm / .dicom)."
     ),
 )
 async def upload_study(
     file: UploadFile | None = File(
         default=None,
-        description="A single .zip of the DICOM series (omit if sending `files`)",
+        description="A single .zip of the DICOM series",
     ),
     files: list[UploadFile] | None = File(
         default=None,
-        description="Any number of DICOM files — multi-select, folder, or one-by-one (omit if sending a .zip in `file`)",
+        description="DICOM files — multi-select or folder upload",
     ),
     patient_id: Annotated[str | None, Form()] = None,
     patient_name: Annotated[str | None, Form()] = None,
@@ -106,13 +136,6 @@ async def upload_study(
         date_of_birth=date_of_birth,
         clinical_notes=clinical_notes,
     )
-
-    description = study_description
-    if modality:
-        description = (description or "").strip()
-        modality_txt = modality.strip()
-        description = f"{description} [{modality_txt}]".strip() if description else f"[{modality_txt}]"
-
     try:
         return await upload_study_impl(
             base_dir=BASE_DIR,
@@ -124,19 +147,8 @@ async def upload_study(
             patient=patient,
             file=file,
             files=files,
-            study_description=description,
+            study_description=_build_study_description(study_description, modality),
             current_user=current_user,
         )
     finally:
-        # Release multipart spool handles (reduces Windows file-lock issues during temp cleanup).
-        if file is not None:
-            try:
-                await file.close()
-            except Exception:
-                logging.getLogger(__name__).debug("upload file.close failed", exc_info=True)
-        if files:
-            for part in files:
-                try:
-                    await part.close()
-                except Exception:
-                    logging.getLogger(__name__).debug("upload part.close failed", exc_info=True)
+        await _close_upload_parts(file, files, log_label="upload")

@@ -1,38 +1,55 @@
+"""PostgreSQL engine, schema bootstrap, and session management."""
+
 from __future__ import annotations
+
 import os
 from contextlib import contextmanager
-from urllib.parse import urlparse, urlunparse
 from typing import Iterator
+from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base
 
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
 
-# Load environment variables from .env
 load_dotenv()
 
-# Require PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError(
         "DATABASE_URL environment variable is required and must point to a PostgreSQL database."
     )
 
-# creating database engine and session factory
+# ---------------------------------------------------------------------------
+# Engine & session factory
+# ---------------------------------------------------------------------------
+
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    expire_on_commit=False,
+)
+
+
+# ---------------------------------------------------------------------------
+# Database bootstrap
+# ---------------------------------------------------------------------------
 
 
 def _ensure_database_exists() -> None:
-    """Create the database if it does not exist (connects to default 'postgres' db)."""
+    """Create the target database if missing (connects via default ``postgres`` db)."""
     parsed = urlparse(DATABASE_URL)
     db_name = parsed.path.lstrip("/") or "postgres"
     if db_name == "postgres":
         return
-    # Connect to default 'postgres' database to create the target database
+
     default_url = urlunparse(parsed._replace(path="/postgres"))
     default_engine = create_engine(default_url, isolation_level="AUTOCOMMIT")
     with default_engine.connect() as conn:
@@ -45,14 +62,19 @@ def _ensure_database_exists() -> None:
 
 
 def init_db() -> None:
-    """Creates tables defined in ORM models."""
+    """Create tables defined by ORM models."""
     _ensure_database_exists()
     Base.metadata.create_all(bind=engine)
 
 
+# ---------------------------------------------------------------------------
+# Sessions
+# ---------------------------------------------------------------------------
+
+
 @contextmanager
 def get_session() -> Iterator[Session]:
-    """Context manager for database sessions."""
+    """Context manager: commit on success, rollback on error, always close."""
     session = SessionLocal()
     try:
         yield session
@@ -65,3 +87,11 @@ def get_session() -> Iterator[Session]:
     finally:
         session.close()
 
+
+__all__ = [
+    "DATABASE_URL",
+    "SessionLocal",
+    "engine",
+    "get_session",
+    "init_db",
+]

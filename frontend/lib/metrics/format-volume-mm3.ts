@@ -1,24 +1,31 @@
-/** Numeric part only (no unit), for split typography with a separate unit span. */
+import {
+  formatSegmentationVolume,
+  formatSegmentationVolumeNumber,
+} from "@/lib/metrics/format-segmentation-volume";
+
+/** @deprecated Prefer `formatSegmentationVolume` with the user's display unit. */
 export function formatVolumeMm3Number(mm3: number, maximumFractionDigits = 0): string {
-  const n = Number(mm3);
-  if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString(undefined, {
+  return formatSegmentationVolumeNumber("mm", {
+    volumeMm3: mm3,
     maximumFractionDigits,
-    minimumFractionDigits: 0,
   });
 }
 
-/** Format a volume already expressed in mm³. */
+/** Format a volume already expressed in mm³ (default display unit). */
 export function formatVolumeMm3(mm3: number, maximumFractionDigits = 0): string {
-  const body = formatVolumeMm3Number(mm3, maximumFractionDigits);
-  if (body === "—") return "—";
-  return `${body} mm³`;
+  return formatSegmentationVolume("mm", {
+    volumeMm3: mm3,
+    maximumFractionDigits,
+  });
 }
 
 /**
  * API lesion / lung fields (`*_volume_ml`, `lung_volume_ml`) are stored as ml
- * (= cm³); multiply by 1000 for mm³ display.
+ * (= cm³); default display multiplies by 1000 for mm³.
  */
 export function formatVolumeFromMlAsMm3(volumeMl: number, maximumFractionDigits = 0): string {
-  return formatVolumeMm3(volumeMl * 1000, maximumFractionDigits);
+  return formatSegmentationVolume("mm", {
+    volumeMl,
+    maximumFractionDigits,
+  });
 }

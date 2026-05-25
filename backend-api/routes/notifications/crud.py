@@ -1,18 +1,91 @@
+"""In-app notification list, read, create, delete, and clear."""
+
 from __future__ import annotations
+
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from auth import get_current_user_optional, TokenPayload
+from auth import TokenPayload, get_current_user_optional
 from models.db import get_session
 from models.models import NotificationORM
-from schemas import Notification, NotificationListResponse, NotificationCreate
+from schemas import Notification, NotificationCreate, NotificationListResponse
 from services.notifications.service import orm_to_notification
+
+# ---------------------------------------------------------------------------
+# Router
+# ---------------------------------------------------------------------------
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-# --- Endpoint: GET /notifications
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+
+
+def _require_user(current_user: TokenPayload | None) -> TokenPayload:
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    return current_user
+
+
+def _user_id(current_user: TokenPayload) -> int:
+    return int(current_user.sub)
+
+
+def _get_owned_notification(
+    session: Session,
+    notification_id: int,
+    user_id: int,
+) -> NotificationORM:
+    row = (
+        session.query(NotificationORM)
+        .filter(NotificationORM.id == notification_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    if row.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Query helpers
+# ---------------------------------------------------------------------------
+
+
+def _list_for_user(
+    session: Session,
+    user_id: int,
+    *,
+    limit: int,
+    unread_only: bool,
+) -> NotificationListResponse:
+    query = session.query(NotificationORM).filter(NotificationORM.user_id == user_id)
+    unread_count = query.filter(NotificationORM.read_at.is_(None)).count()
+
+    if unread_only:
+        query = query.filter(NotificationORM.read_at.is_(None))
+
+    rows = query.order_by(NotificationORM.created_at.desc()).limit(limit).all()
+    return NotificationListResponse(
+        unread_count=unread_count,
+        notifications=[orm_to_notification(r) for r in rows],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
 @router.get(
     "",
     response_model=NotificationListResponse,
@@ -24,30 +97,16 @@ async def list_notifications(
     unread_only: bool = False,
     current_user: Optional[TokenPayload] = Depends(get_current_user_optional),
 ) -> NotificationListResponse:
-    """
-    **List notifications** — for the current user.
-    """
+    """Notifications for the current user (empty list when unauthenticated)."""
     if not current_user:
         return NotificationListResponse(unread_count=0, notifications=[])
 
-    user_id = int(current_user.sub)
-
     with get_session() as session:
-        query = session.query(NotificationORM).filter(NotificationORM.user_id == user_id)
-
-        unread_count = query.filter(NotificationORM.read_at.is_(None)).count()
-
-        if unread_only:
-            query = query.filter(NotificationORM.read_at.is_(None))
-
-        rows = query.order_by(NotificationORM.created_at.desc()).limit(limit).all()
-        return NotificationListResponse(
-            unread_count=unread_count,
-            notifications=[orm_to_notification(r) for r in rows]
+        return _list_for_user(
+            session, _user_id(current_user), limit=limit, unread_only=unread_only
         )
 
 
-# --- Endpoint: PATCH /notifications/{notification_id}/read
 @router.patch(
     "/{notification_id}/read",
     summary="Mark notification read",
@@ -57,32 +116,13 @@ async def mark_notification_read(
     notification_id: int,
     current_user: Optional[TokenPayload] = Depends(get_current_user_optional),
 ) -> dict:
-    """
-    **Mark read** — only own rows.
-    """
-    from datetime import datetime
-
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    user_id = int(current_user.sub)
-
+    user = _require_user(current_user)
     with get_session() as session:
-        row = session.query(NotificationORM).filter(NotificationORM.id == notification_id).first()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Notification not found")
-
-        if row.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        row.read_at = datetime.utcnow()
-        session.commit()
-
+        row = _get_owned_notification(session, notification_id, _user_id(user))
+        row.read_at = datetime.now(timezone.utc)
     return {"ok": True}
 
 
-# --- Endpoint: POST /notifications
 @router.post(
     "",
     response_model=Notification,
@@ -94,28 +134,19 @@ async def create_notification(
     payload: NotificationCreate,
     current_user: Optional[TokenPayload] = Depends(get_current_user_optional),
 ) -> Notification:
-    """
-    **Create** — notification for the authenticated user.
-    """
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    user_id = int(current_user.sub)
-
+    user = _require_user(current_user)
     with get_session() as session:
         n = NotificationORM(
-            user_id=user_id,
+            user_id=_user_id(user),
             title=payload.title,
             message=payload.message or "",
             type=payload.type or "info",
         )
         session.add(n)
-        session.commit()
-        session.refresh(n)
+        session.flush()
         return orm_to_notification(n)
 
 
-# --- Endpoint: DELETE /notifications/{notification_id}
 @router.delete(
     "/{notification_id}",
     summary="Delete one notification",
@@ -125,33 +156,13 @@ async def delete_notification(
     notification_id: int,
     current_user: Optional[TokenPayload] = Depends(get_current_user_optional),
 ) -> dict:
-    """
-    **Delete one** — must belong to the authenticated user.
-    """
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    user_id = int(current_user.sub)
-
+    user = _require_user(current_user)
     with get_session() as session:
-        row = (
-            session.query(NotificationORM)
-            .filter(NotificationORM.id == notification_id)
-            .first()
-        )
-        if not row:
-            raise HTTPException(status_code=404, detail="Notification not found")
-
-        if row.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-
+        row = _get_owned_notification(session, notification_id, _user_id(user))
         session.delete(row)
-        session.commit()
-
     return {"ok": True}
 
 
-# --- Endpoint: DELETE /notifications (clear)
 @router.delete(
     "",
     summary="Clear all my notifications",
@@ -160,20 +171,11 @@ async def delete_notification(
 async def clear_notifications(
     current_user: Optional[TokenPayload] = Depends(get_current_user_optional),
 ) -> dict:
-    """
-    **Clear** — all notifications for the current user.
-    """
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    user_id = int(current_user.sub)
-
+    user = _require_user(current_user)
     with get_session() as session:
         deleted = (
             session.query(NotificationORM)
-            .filter(NotificationORM.user_id == user_id)
+            .filter(NotificationORM.user_id == _user_id(user))
             .delete(synchronize_session=False)
         )
-        session.commit()
-
     return {"ok": True, "deleted": deleted}

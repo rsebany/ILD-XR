@@ -8,6 +8,7 @@ export type RecentStudyRow = {
   type: string;
   status: StudyListItem["status"];
   volumeTotalMm3: number;
+  ildFraction: number;
   acquisitionDate?: string;
   hasSegmentation: boolean;
 };
@@ -71,6 +72,7 @@ export function buildRecentStudyRows(
       type: s.modality ?? "CT",
       status: s.status,
       volumeTotalMm3: s.volume_total_mm3,
+      ildFraction: s.ild_fraction,
       acquisitionDate:
         s.acquisition_date === null ? undefined : s.acquisition_date,
       hasSegmentation: s.status === "Completed" || s.ild_fraction > 0,

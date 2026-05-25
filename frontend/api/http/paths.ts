@@ -1,8 +1,16 @@
 /**
- * FastAPI router prefixes (match `backend-api` include_router paths).
+ * API route prefixes and path builders.
+ *
+ * Prefixes match `backend-api` `include_router` paths.
  * Use {@link joinRoute} for path segments so IDs are encoded consistently.
  */
+
+// ---------------------------------------------------------------------------
+// Route prefixes
+// ---------------------------------------------------------------------------
+
 export const ROUTES = {
+  admin: "/admin",
   analytics: "/analytics",
   auth: "/auth",
   patients: "/patients",
@@ -10,6 +18,10 @@ export const ROUTES = {
   notifications: "/notifications",
   settings: "/settings",
 } as const;
+
+// ---------------------------------------------------------------------------
+// Path builders
+// ---------------------------------------------------------------------------
 
 /** `/resource/a/b` — each segment URL-encoded. */
 export function joinRoute(

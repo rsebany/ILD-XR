@@ -1,3 +1,5 @@
+"""Shared study-route helpers: DICOM paths, volume load, CT windowing."""
+
 from __future__ import annotations
 
 import json
@@ -11,17 +13,29 @@ from scipy.ndimage import gaussian_filter
 
 from models.db import get_session
 from models.models import StudyORM
-from services.core.paths import (
-    BASE_DIR,
-    DICOM_STORAGE,
-    STATIC_MESH_DIR,
-    WEIGHTS_PATH,
-)
+from services.core.paths import BASE_DIR, DICOM_STORAGE, STATIC_MESH_DIR, WEIGHTS_PATH
 from services.dicom.series_read import (
     read_sorted_dicom_slices,
     spacing_zyx_mm,
     stack_pixel_volume_zyx_viewer,
 )
+
+# Re-export path constants for route modules.
+__all__ = [
+    "BASE_DIR",
+    "DICOM_STORAGE",
+    "STATIC_MESH_DIR",
+    "WEIGHTS_PATH",
+    "_ct_hu_plane_to_lung_window_rgb",
+    "_dicom_series_spacing_mm",
+    "_ensure_study_dicom_dir",
+    "_legacy_patient_json",
+    "_load_dicom_volume_and_slices",
+]
+
+# ---------------------------------------------------------------------------
+# CT windowing (2D viewer)
+# ---------------------------------------------------------------------------
 
 
 def _ct_hu_plane_to_lung_window_rgb(
@@ -30,10 +44,7 @@ def _ct_hu_plane_to_lung_window_rgb(
     window_width: int,
     denoise: bool,
 ) -> np.ndarray:
-    """
-    Grayscale 8-bit RGB for one 2D HU frame: DICOM rescaled intensity + window, optional blur.
-    Does not use AI masks or training-style normalization.
-    """
+    """Grayscale RGB for one HU frame: DICOM window + optional blur."""
     lower = float(window_center) - float(window_width) / 2.0
     upper = float(window_center) + float(window_width) / 2.0
     ct_slice = np.clip(ct_slice_3d, lower, upper)
@@ -44,34 +55,34 @@ def _ct_hu_plane_to_lung_window_rgb(
     return np.stack([gray, gray, gray], axis=-1)
 
 
+# ---------------------------------------------------------------------------
+# DICOM on disk
+# ---------------------------------------------------------------------------
+
+
 def _ensure_study_dicom_dir(study_id: str) -> Path:
-    """Return path to stored DICOM series, backfilling from volume_path when needed."""
+    """Return stored DICOM series dir; backfill from ``volume_path`` when needed."""
     study_dicom_dir = DICOM_STORAGE / study_id
-    if not study_dicom_dir.exists():
-        with get_session() as session:
-            study = (
-                session.query(StudyORM)
-                .filter(StudyORM.external_id == study_id)
-                .first()
-            )
-            volume_path = Path(study.volume_path) if study and study.volume_path else None
-            if volume_path and volume_path.exists():
-                try:
-                    study_dicom_dir.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copytree(volume_path, study_dicom_dir, dirs_exist_ok=True)
-                except Exception as exc:  # noqa: BLE001
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to reconstruct DICOM data from volume_path: {exc}",
-                    ) from exc
+    if study_dicom_dir.exists():
+        return study_dicom_dir
+
+    with get_session() as session:
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        volume_path = Path(study.volume_path) if study and study.volume_path else None
+        if volume_path and volume_path.exists():
+            try:
+                study_dicom_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(volume_path, study_dicom_dir, dirs_exist_ok=True)
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to reconstruct DICOM data from volume_path: {exc}",
+                ) from exc
     return study_dicom_dir
 
 
 def _load_dicom_volume_and_slices(study_dicom_dir: Path) -> tuple[np.ndarray, List[Any]]:
-    """
-    Load and stack DICOM files into a [D, H, W] volume (same ordering as slice overlay).
-    Returns sorted pydicom datasets for HU metadata (RescaleSlope / RescaleIntercept).
-    """
+    """Stack sorted DICOM into (Z, Y, X) volume + pydicom datasets for HU metadata."""
     slices = read_sorted_dicom_slices(study_dicom_dir)
     if not slices:
         raise ValueError("Study directory contains no DICOM files")
@@ -86,10 +97,13 @@ def _load_dicom_volume_and_slices(study_dicom_dir: Path) -> tuple[np.ndarray, Li
 
 
 def _dicom_series_spacing_mm(slices: List[Any]) -> tuple[float, float, float]:
-    """
-    Spacing in mm (z along index 0, y row, x col) matching (D, H, W) volume order.
-    """
+    """Spacing mm (z, y, x) matching (D, H, W) volume order."""
     return spacing_zyx_mm(slices, mode="viewer")
+
+
+# ---------------------------------------------------------------------------
+# Upload form helpers
+# ---------------------------------------------------------------------------
 
 
 def _legacy_patient_json(

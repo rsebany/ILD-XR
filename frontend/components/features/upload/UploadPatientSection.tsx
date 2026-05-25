@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PatientCombobox } from "@/components/features/patients/PatientComboBox";
 import { StudyLabelField } from "@/components/features/upload/StudyLabelField";
-import type { Patient } from "@/api/types";
+import type { Patient } from "@/api/domain";
 import { cn } from "@/lib/utils";
 
 type PatientStudySummary = {

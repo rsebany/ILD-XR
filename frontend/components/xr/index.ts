@@ -1,15 +1,10 @@
-export { DicomSliceViewer } from "./dicom-slice-viewer";
-export {
-  XrExperiencePage,
-  type XrExperienceMode,
-} from "./xr-experience-page";
-export { XRSceneContent } from "./xr-scene-content";
-export { XrLabHeader } from "./xr-lab-header";
-export { XrMetricsPanel } from "./xr-metrics-panel";
-export { XrStatusOverlays } from "./xr-status-overlays";
-export { XrImmersiveHud } from "./xr-immersive-hud";
-export {
-  XrBottomToolbar,
-  parseXrToolbarDock,
-  type XrToolbarDock,
-} from "./xr-bottom-toolbar";
+/**
+ * Immersive XR route shell — VR/AR pages, HUD, toolbars, scene orchestration.
+ * Reusable 3D primitives (LungMesh, ThreeViewer) live under
+ * `@/components/features/viewer/xr`.
+ */
+export { DicomSliceViewer } from "./dicom";
+export { XrExperiencePage, type XrExperienceMode } from "./experience";
+export { XRSceneContent } from "./scene";
+export { XrLabHeader, XrMetricsPanel, XrStatusOverlays, XrImmersiveHud } from "./chrome";
+export { XrBottomToolbar, parseXrToolbarDock, type XrToolbarDock } from "./toolbar";

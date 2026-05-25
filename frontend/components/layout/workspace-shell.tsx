@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { NavHeader } from "@/components/nav-header";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { NavHeader } from "@/components/layout/nav-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import type { AppSidebarPage } from "@/api/types";
+import type { AppSidebarPage } from "@/api/domain";
 
 export type WorkspaceShellProps = {
   activePage: AppSidebarPage;

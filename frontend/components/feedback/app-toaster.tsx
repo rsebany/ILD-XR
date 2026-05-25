@@ -2,7 +2,7 @@
 
 import { Toaster } from "sonner";
 
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/layout/theme-provider";
 
 /**
  * Global toast host — place once under {@link ThemeProvider}.

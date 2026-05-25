@@ -2,7 +2,7 @@ import { Activity, Box, UploadCloud, Layers, Scan, FileStack, Sparkles } from "l
 import React from "react";
 
 import { Button } from "@/components/ui/button";
-import type { Patient } from "@/api/types";
+import type { Patient } from "@/api/domain";
 import { cn } from "@/lib/utils";
 
 type UploadImagingSectionProps = {

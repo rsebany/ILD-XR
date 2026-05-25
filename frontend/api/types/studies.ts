@@ -1,3 +1,11 @@
+/**
+ * Study types — list items, segmentation, upload, expert compare, DICOM, sync events.
+ */
+
+// ---------------------------------------------------------------------------
+// Shared segmentation shapes
+// ---------------------------------------------------------------------------
+
 /** Upper / Middle / Lower — % of ILD voxels in each craniocaudal third. */
 export type ZonalDistribution = Record<string, number>;
 
@@ -9,6 +17,10 @@ export interface XRViewConfig {
   mesh_url: string;
   clipping_enabled: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Segmentation results
+// ---------------------------------------------------------------------------
 
 export interface SegmentationResult {
   id: string;
@@ -36,6 +48,10 @@ export interface SegmentationResult {
 export type SegmentationResultDTO = SegmentationResult & {
   xr_view: XRViewConfig;
 };
+
+// ---------------------------------------------------------------------------
+// Study entities
+// ---------------------------------------------------------------------------
 
 export interface Study {
   id: string;
@@ -65,10 +81,44 @@ export interface StudyListItem {
   consolidation_burden?: number | null;
 }
 
+/** Metrics from `GET /studies/{id}/metrics` and `POST .../ai-analysis`. */
+export interface StudyMetrics {
+  study_id: string;
+  volume_total_mm3: number;
+  /** Aggregate ILD burden = V_lesion / V_lung (clamped to [0,1]). */
+  ild_fraction: number;
+  /** Same value as ild_fraction, surfaced under the report's name. */
+  ild_burden?: number | null;
+  zonal_distribution: Record<string, number>;
+  lung_volume_ml?: number | null;
+  ggo_volume_ml?: number | null;
+  reticulation_volume_ml?: number | null;
+  consolidation_volume_ml?: number | null;
+  ggo_burden?: number | null;
+  reticulation_burden?: number | null;
+  consolidation_burden?: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Upload
+// ---------------------------------------------------------------------------
+
 export interface UploadStudyResponse {
   study_id: string;
   patient: any;
 }
+
+/** Payload for `POST /studies/upload` `patient` form field (JSON). */
+export interface UploadStudyPatientPayload {
+  id?: string;
+  name: string;
+  dob?: string;
+  sex?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Expert mask compare
+// ---------------------------------------------------------------------------
 
 /** Response from POST /studies/upload/expert-mask-compare */
 export interface ExpertMaskCompareResponse {
@@ -97,13 +147,9 @@ export interface ExpertMaskCompareResponse {
   expert_slices_matched?: number | null;
 }
 
-/** Payload for `POST /studies/upload` `patient` form field (JSON). */
-export interface UploadStudyPatientPayload {
-  id?: string;
-  name: string;
-  dob?: string;
-  sex?: string;
-}
+// ---------------------------------------------------------------------------
+// DICOM volume & realtime sync
+// ---------------------------------------------------------------------------
 
 /** Native DICOM grid from `GET /studies/{id}/dicom-shape` (Z,Y,X indexing). */
 export type DicomVolumeShape = {

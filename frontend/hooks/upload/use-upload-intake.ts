@@ -11,9 +11,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { Patient, SegmentationResultDTO } from "@/api/types";
+import type { Patient, SegmentationResultDTO } from "@/api/domain";
 import { usePatients, usePatientDetail } from "@/hooks/patients";
-import { resolveMeshUrl } from "@/components/features/upload/resolve-mesh-url";
+import { resolveMeshUrl } from "@/api/clients";
 import { uploadStudyService } from "@/services/upload";
 
 export type UploadIntakeStep = 1 | 2 | 3;
@@ -68,7 +68,6 @@ export function useUploadIntake() {
     useState<SegmentationResultDTO | null>(null);
   const [noIldMessage, setNoIldMessage] = useState<string | null>(null);
   const [viewerChoice, setViewerChoice] = useState<ViewerChoice | null>(null);
-  const [redirectingTo2D, setRedirectingTo2D] = useState(false);
   const [intakeStep, setIntakeStep] = useState<UploadIntakeStep>(1);
   const progressTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -329,12 +328,6 @@ export function useUploadIntake() {
           meshPath: withXrView.xr_view.mesh_url,
         });
         setIntakeStep(3);
-        setRedirectingTo2D(true);
-        const params = new URLSearchParams({
-          patientId: newPid,
-          studyId: study.id,
-        });
-        router.push(`/view2d?${params.toString()}`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Analysis failed.";
@@ -404,7 +397,6 @@ export function useUploadIntake() {
     noIldMessage,
     viewerChoice,
     setViewerChoice,
-    redirectingTo2D,
     intakeStep,
     setIntakeStep,
     studiesForSelectedPatient,

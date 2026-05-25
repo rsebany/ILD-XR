@@ -1,3 +1,11 @@
+/**
+ * Low-level HTTP client — base URL, auth headers, fetch wrappers, and {@link ApiError}.
+ */
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
 const DEFAULT_BASE_URL =
   (typeof process !== "undefined" &&
     (process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -5,6 +13,10 @@ const DEFAULT_BASE_URL =
   "http://localhost:8000";
 
 const AUTH_STORAGE_KEY = "ildxr_auth";
+
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
 
 export interface RequestOptions extends Omit<RequestInit, "body"> {
   /** If false, do not JSON-encode the body even if it's an object. */
@@ -24,6 +36,10 @@ export class ApiError extends Error {
     this.data = data;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 function detailToMessage(detail: unknown): string | null {
   if (typeof detail === "string") {
@@ -58,6 +74,55 @@ function detailToMessage(detail: unknown): string | null {
   return null;
 }
 
+function parseResponseBody(
+  text: string,
+  contentType: string | null,
+): unknown {
+  const isJson = contentType?.includes("application/json");
+  return text && isJson ? JSON.parse(text) : text;
+}
+
+function errorMessageFromBody(data: unknown, status: number): string {
+  const detail =
+    data && typeof data === "object"
+      ? (data as { detail?: unknown }).detail
+      : data;
+  return (
+    detailToMessage(detail) ??
+    detailToMessage(data) ??
+    `Request failed with status ${status}`
+  );
+}
+
+function normalizeHeaders(
+  headers: HeadersInit | undefined,
+  authHeader: Record<string, string>,
+): Record<string, string> {
+  let normalizedHeaders: Record<string, string> = { ...authHeader };
+  if (headers instanceof Headers) {
+    normalizedHeaders = {
+      ...normalizedHeaders,
+      ...Object.fromEntries(headers.entries()),
+    };
+  } else if (Array.isArray(headers)) {
+    normalizedHeaders = { ...normalizedHeaders, ...Object.fromEntries(headers) };
+  } else if (headers && typeof headers === "object") {
+    normalizedHeaders = {
+      ...normalizedHeaders,
+      ...(headers as Record<string, string>),
+    };
+  }
+  return normalizedHeaders;
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
+}
+
+// ---------------------------------------------------------------------------
+// Base URL & auth
+// ---------------------------------------------------------------------------
+
 export function getApiBaseUrl(): string {
   return DEFAULT_BASE_URL.replace(/\/+$/, "");
 }
@@ -87,26 +152,9 @@ export function getAuthHeader(): Record<string, string> {
   }
 }
 
-function normalizeHeaders(
-  headers: HeadersInit | undefined,
-  authHeader: Record<string, string>,
-): Record<string, string> {
-  let normalizedHeaders: Record<string, string> = { ...authHeader };
-  if (headers instanceof Headers) {
-    normalizedHeaders = {
-      ...normalizedHeaders,
-      ...Object.fromEntries(headers.entries()),
-    };
-  } else if (Array.isArray(headers)) {
-    normalizedHeaders = { ...normalizedHeaders, ...Object.fromEntries(headers) };
-  } else if (headers && typeof headers === "object") {
-    normalizedHeaders = {
-      ...normalizedHeaders,
-      ...(headers as Record<string, string>),
-    };
-  }
-  return normalizedHeaders;
-}
+// ---------------------------------------------------------------------------
+// Core fetch
+// ---------------------------------------------------------------------------
 
 export async function apiFetchRaw(
   path: string,
@@ -136,24 +184,28 @@ export async function apiFetchRaw(
   const res = await fetch(url, init);
   if (!res.ok) {
     const text = await res.text();
-    const isJson = res.headers.get("content-type")?.includes("application/json");
-    const data = text && isJson ? JSON.parse(text) : text;
-    const detail =
-      data && typeof data === "object"
-        ? (data as { detail?: unknown }).detail
-        : data;
-    const message =
-      detailToMessage(detail) ??
-      detailToMessage(data) ??
-      `Request failed with status ${res.status}`;
+    const data = parseResponseBody(text, res.headers.get("content-type"));
     throw new ApiError(
-      message,
+      errorMessageFromBody(data, res.status),
       res.status,
       data,
     );
   }
   return res;
 }
+
+export async function apiFetch<TResponse>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TResponse> {
+  const res = await apiFetchRaw(path, options);
+  const text = await res.text();
+  return parseResponseBody(text, res.headers.get("content-type")) as TResponse;
+}
+
+// ---------------------------------------------------------------------------
+// Blob & optional (404) responses
+// ---------------------------------------------------------------------------
 
 /** GET (or custom method) and return response body as Blob; auth + base URL like {@link apiFetch}. */
 export async function apiFetchBlob(
@@ -176,7 +228,7 @@ export async function apiFetchAllow404<TResponse>(
   try {
     return await apiFetch<TResponse>(path, options);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
+    if (isNotFoundError(error)) {
       return null;
     }
     throw error;
@@ -191,21 +243,9 @@ export async function apiFetchRawAllow404(
   try {
     return await apiFetchRaw(path, options);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
+    if (isNotFoundError(error)) {
       return null;
     }
     throw error;
   }
 }
-
-export async function apiFetch<TResponse>(
-  path: string,
-  options: RequestOptions = {},
-): Promise<TResponse> {
-  const res = await apiFetchRaw(path, options);
-  const text = await res.text();
-  const isJson = res.headers.get("content-type")?.includes("application/json");
-  const data = text && isJson ? JSON.parse(text) : text;
-  return data as TResponse;
-}
-

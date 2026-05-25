@@ -1,3 +1,4 @@
+"""On-disk segmentation revision manifests and mask payloads for sync routes."""
 from __future__ import annotations
 
 import base64
@@ -16,6 +17,19 @@ LABEL_CONTRACT: dict[str, int] = {
     "reticulation": 2,
     "consolidation": 3,
 }
+
+__all__ = [
+    "LABEL_CONTRACT",
+    "SegmentationRevision",
+    "append_revision",
+    "decode_mask",
+    "load_manifest",
+    "save_manifest",
+]
+
+# ---------------------------------------------------------------------------
+# Revision model & manifest I/O
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -57,6 +71,11 @@ def save_manifest(root: Path, study_id: str, payload: dict[str, Any]) -> None:
     study_dir.mkdir(parents=True, exist_ok=True)
     with _manifest_path(root, study_id).open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Mask encode / decode & append revision
+# ---------------------------------------------------------------------------
 
 
 def decode_mask(mask_b64: str, shape_zyx: tuple[int, int, int]) -> np.ndarray:

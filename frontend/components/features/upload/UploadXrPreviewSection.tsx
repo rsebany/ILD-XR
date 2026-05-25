@@ -1,10 +1,16 @@
+"use client";
+
 import { Box } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { SegmentationResultDTO } from "@/api/types";
-import { ThreeViewer } from "@/components/features/viewer/component/xr/viewers/ThreeViewer";
-import { getApiBaseUrl } from "@/api/http/client";
-import { formatVolumeMm3Number } from "@/lib/metrics/format-volume-mm3";
+import type { SegmentationResultDTO } from "@/api/domain";
+import { resolveMeshUrl } from "@/api/clients";
+import { ThreeViewer } from "@/components/features/viewer/xr/viewers/ThreeViewer";
+import { useVolumeDisplayUnit } from "@/hooks/settings";
+import {
+  formatSegmentationVolumeNumber,
+  formatSegmentationVolumeUnitLabel,
+} from "@/lib/metrics/format-segmentation-volume";
 
 type UploadXrPreviewSectionProps = {
   segmentation: SegmentationResultDTO | null;
@@ -17,11 +23,16 @@ export function UploadXrPreviewSection({
   xrLoading,
   onOpenWebXR,
 }: UploadXrPreviewSectionProps) {
+  const displayUnit = useVolumeDisplayUnit();
   const meshPath = segmentation?.xr_view?.mesh_url ?? "";
-  const meshUrl =
-    meshPath && !(meshPath.startsWith("http://") || meshPath.startsWith("https://"))
-      ? `${getApiBaseUrl()}${meshPath}`
-      : meshPath;
+  const meshUrl = meshPath ? resolveMeshUrl(meshPath) : "";
+
+  const totalIldDisplay = segmentation
+    ? formatSegmentationVolumeNumber(displayUnit, {
+        volumeMm3: segmentation.total_ild_volume_ml * 1000,
+        burdenFraction: segmentation.ild_burden,
+      })
+    : "—";
 
   return (
     <aside className="flex flex-1 flex-col gap-6">
@@ -66,8 +77,10 @@ export function UploadXrPreviewSection({
                     Total ILD Volume
                   </p>
                   <p className="text-lg font-black text-white">
-                    {formatVolumeMm3Number(segmentation.total_ild_volume_ml * 1000)}{" "}
-                    <span className="text-[10px] font-normal text-slate-400">mm³</span>
+                    {totalIldDisplay}{" "}
+                    <span className="text-[10px] font-normal text-slate-400">
+                      {formatSegmentationVolumeUnitLabel(displayUnit)}
+                    </span>
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/60 p-3 backdrop-blur-md">
@@ -83,10 +96,10 @@ export function UploadXrPreviewSection({
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/60 p-3 backdrop-blur-md">
                   <p className="text-[9px] font-bold uppercase text-emerald-400">
-                    Upper zone
+                    ILD burden
                   </p>
                   <p className="text-lg font-black text-white">
-                    {(segmentation.zonal_distribution?.Upper ?? 0).toFixed(1)}
+                    {((segmentation.ild_burden ?? 0) * 100).toFixed(1)}
                     <span className="text-[10px] font-normal text-slate-400">
                       %
                     </span>
@@ -96,19 +109,16 @@ export function UploadXrPreviewSection({
             </div>
           )}
         </div>
-
-        <div className="border-t border-border p-4">
-          <Button
-            disabled={!segmentation || xrLoading}
-            onClick={onOpenWebXR}
-            className="group h-12 w-full rounded-xl bg-white font-black text-black transition-all hover:bg-slate-100"
-          >
-            {xrLoading ? "INITIALIZING..." : "ENTER IMMERSIVE XR"}
-            <Box className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-          </Button>
-        </div>
       </div>
+
+      <Button
+        type="button"
+        className="ild-cta w-full gap-2"
+        disabled={!segmentation || !meshUrl || xrLoading}
+        onClick={onOpenWebXR}
+      >
+        {xrLoading ? "Opening XR…" : "Open in WebXR"}
+      </Button>
     </aside>
   );
 }
-

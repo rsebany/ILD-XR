@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useUploadIntake } from "@/hooks/upload";
 import { UploadPatientSection } from "@/components/features/upload/UploadPatientSection";
 import { UploadImagingSection } from "@/components/features/upload/UploadImagingSection";
-import { PostAnalysisViewChoice } from "@/components/features/imaging/PostAnalysisViewChoice";
+import { PostAnalysisViewChoice } from "@/components/features/viewer/pipeline/PostAnalysisViewChoice";
 import { DicomIntakeStepper } from "@/components/features/upload/DicomIntakeStepper";
 import { UploadPatientSummaryCard } from "@/components/features/upload/upload-patient-summary-card";
 import { UploadIntakeNotifications } from "@/components/features/upload/upload-intake-notifications";
-import { ExpertMaskCompareSection } from "@/components/features/upload/ExpertMaskCompareSection";
+// import { ExpertMaskCompareSection } from "@/components/features/upload/ExpertMaskCompareSection";
 import { UploadAiProgressFooter } from "@/components/features/upload/upload-ai-progress-footer";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +44,6 @@ export function UploadPanel() {
     noIldMessage,
     viewerChoice,
     setViewerChoice,
-    redirectingTo2D,
     intakeStep,
     setIntakeStep,
     studiesForSelectedPatient,
@@ -145,7 +144,7 @@ export function UploadPanel() {
               <div className="flex flex-col gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-foreground">
                   {viewerChoice
-                    ? "AI done — open viewers (2D / 3D / WebXR)."
+                    ? "AI done — pick 2D, 3D, WebXR, or download the PDF report."
                     : "AI ready — continue to pick a viewer."}
                 </p>
                 <Button
@@ -186,9 +185,11 @@ export function UploadPanel() {
               error={error}
             />
 
+            {/* Expert mask compare — hidden until needed
             <ExpertMaskCompareSection
               defaultStudyId={viewerChoice?.studyId ?? activeStudyId ?? null}
             />
+            */}
           </>
         )}
 
@@ -239,7 +240,6 @@ export function UploadPanel() {
         showAnalysisComplete={Boolean(
           segmentation && uploadProgress?.percentage === 100,
         )}
-        redirectingTo2D={redirectingTo2D}
       />
       </div>
 

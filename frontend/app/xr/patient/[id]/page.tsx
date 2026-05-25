@@ -1,3 +1,6 @@
+/**
+ * Legacy redirect — `/xr/patient/:id` → `/webxr?patientId=…`
+ */
 "use client";
 
 import { redirect } from "next/navigation";
@@ -9,7 +12,5 @@ type Params = {
 };
 
 export default function XRPatientRedirect({ params }: Params) {
-  const patientId = params.id;
-  redirect(`/webxr?patientId=${encodeURIComponent(patientId)}`);
+  redirect(`/webxr?patientId=${encodeURIComponent(params.id)}`);
 }
-

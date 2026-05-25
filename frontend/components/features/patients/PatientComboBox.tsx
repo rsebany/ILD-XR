@@ -3,7 +3,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Patient } from "@/api/types";
+import type { Patient } from "@/api/domain";
 
 type PatientOption = { id: string; name: string };
 

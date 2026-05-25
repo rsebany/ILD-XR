@@ -5,3 +5,5 @@ export {
   useRequestPasswordReset,
   useResetPassword,
 } from "./use-password-reset-mutations";
+export { useRedirectWhenAuthenticated } from "./use-redirect-when-authenticated";
+export { useAuthErrorDialog } from "./use-auth-error-dialog";

@@ -2,7 +2,7 @@
 
 import { Info, Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Patient } from "@/api/types";
+import type { Patient } from "@/api/domain";
 
 type Props = {
   form: Partial<Patient>;

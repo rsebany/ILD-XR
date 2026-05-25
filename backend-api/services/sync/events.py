@@ -1,3 +1,4 @@
+"""In-process per-study event fan-out for segmentation sync SSE."""
 from __future__ import annotations
 
 import asyncio
@@ -45,3 +46,5 @@ class StudyEventHub:
 
 
 study_event_hub = StudyEventHub()
+
+__all__ = ["StudyEventHub", "study_event_hub"]

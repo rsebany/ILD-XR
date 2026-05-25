@@ -1,3 +1,6 @@
+/**
+ * Studies API — list, upload, metrics, downloads, expert compare, volume/mask assets.
+ */
 import {
   ApiError,
   apiFetch,
@@ -23,21 +26,84 @@ export type {
   UploadStudyPatientPayload,
 } from "../domain";
 
-export async function listStudies(): Promise<StudyListItem[]> {
-  return apiFetch<StudyListItem[]>(ROUTES.studies, { method: "GET" });
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function appendImagingFiles(formData: FormData, files: File[]): void {
+  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
+  if (zipFiles.length > 0) {
+    formData.append("file", zipFiles[0]);
+  } else {
+    files.forEach((f) => formData.append("files", f));
+  }
 }
 
-export async function getStudyMetrics(studyId: string): Promise<StudyMetrics> {
-  return apiFetch<StudyMetrics>(
-    joinRoute(ROUTES.studies, studyId, "metrics"),
-    { method: "GET" },
-  );
+async function fetchStudyBlob(
+  path: string,
+  notFoundMessage: string,
+): Promise<Blob> {
+  try {
+    return await apiFetchBlob(path, { method: "GET" });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw new Error(notFoundMessage);
+    }
+    throw error;
+  }
+}
+
+export function resolveMeshUrl(meshPath: string): string {
+  if (meshPath.startsWith("http://") || meshPath.startsWith("https://")) {
+    return meshPath;
+  }
+  return buildApiUrl(meshPath);
+}
+
+async function fetchMeshUrlFromRoute(route: string): Promise<string> {
+  const res = await apiFetch<{ mesh_url: string }>(route, { method: "GET" });
+  return resolveMeshUrl(res.mesh_url || "");
+}
+
+function parseMaskShapeHeader(
+  header: string | null,
+): [number, number, number] {
+  if (!header) {
+    throw new Error("Mask shape header missing or invalid");
+  }
+  const parts = header
+    .split(",")
+    .map((p) => parseInt(p.trim(), 10))
+    .filter((n) => !Number.isNaN(n));
+  if (parts.length !== 3 || parts.some((n) => n <= 0)) {
+    throw new Error("Mask shape header missing or invalid");
+  }
+  return parts as [number, number, number];
+}
+
+// ---------------------------------------------------------------------------
+// List & lifecycle
+// ---------------------------------------------------------------------------
+
+export async function listStudies(): Promise<StudyListItem[]> {
+  return apiFetch<StudyListItem[]>(ROUTES.studies, { method: "GET" });
 }
 
 export async function deleteStudy(studyId: string): Promise<void> {
   await apiFetch<void>(joinRoute(ROUTES.studies, studyId), {
     method: "DELETE",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Metrics & AI analysis
+// ---------------------------------------------------------------------------
+
+export async function getStudyMetrics(studyId: string): Promise<StudyMetrics> {
+  return apiFetch<StudyMetrics>(
+    joinRoute(ROUTES.studies, studyId, "metrics"),
+    { method: "GET" },
+  );
 }
 
 /** Re-run segmentation on the study's stored DICOM; updates mask on disk and metrics. */
@@ -48,37 +114,27 @@ export async function runStudyAiAnalysis(studyId: string): Promise<StudyMetrics>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Downloads (blob)
+// ---------------------------------------------------------------------------
+
 export async function getStudyDicomZip(studyId: string): Promise<Blob> {
-  try {
-    return await apiFetchBlob(
-      joinRoute(ROUTES.studies, studyId, "dicom-zip"),
-      { method: "GET" },
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      throw new Error(
-        "DICOM series is not available on the server for this study. Try re-running the analysis or re-uploading the scan.",
-      );
-    }
-    throw error;
-  }
+  return fetchStudyBlob(
+    joinRoute(ROUTES.studies, studyId, "dicom-zip"),
+    "DICOM series is not available on the server for this study. Try re-running the analysis or re-uploading the scan.",
+  );
 }
 
 export async function getStudyReportPdf(studyId: string): Promise<Blob> {
-  try {
-    return await apiFetchBlob(
-      joinRoute(ROUTES.studies, studyId, "report-pdf"),
-      { method: "GET" },
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      throw new Error(
-        "Report is not available for this study yet. Wait for processing to complete.",
-      );
-    }
-    throw error;
-  }
+  return fetchStudyBlob(
+    joinRoute(ROUTES.studies, studyId, "report-pdf"),
+    "Report is not available for this study yet. Wait for processing to complete.",
+  );
 }
+
+// ---------------------------------------------------------------------------
+// Upload
+// ---------------------------------------------------------------------------
 
 export async function uploadStudy(
   patient: UploadStudyPatientPayload,
@@ -100,12 +156,7 @@ export async function uploadStudy(
   if (dob) {
     formData.append("date_of_birth", dob);
   }
-  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
-  if (zipFiles.length > 0) {
-    formData.append("file", zipFiles[0]);
-  } else {
-    files.forEach((f) => formData.append("files", f));
-  }
+  appendImagingFiles(formData, files);
   if (studyDescription) {
     formData.append("study_description", studyDescription);
   }
@@ -117,6 +168,10 @@ export async function uploadStudy(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Expert mask compare
+// ---------------------------------------------------------------------------
+
 /** Compare expert / reference mask DICOMs (ZIP or multi-file) to the stored AI mask for a study. */
 export async function compareExpertMaskDicom(
   studyId: string,
@@ -127,12 +182,7 @@ export async function compareExpertMaskDicom(
   }
   const formData = new FormData();
   formData.append("study_id", studyId.trim());
-  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
-  if (zipFiles.length > 0) {
-    formData.append("file", zipFiles[0]);
-  } else {
-    files.forEach((f) => formData.append("files", f));
-  }
+  appendImagingFiles(formData, files);
   return apiFetch<ExpertMaskCompareResponse>(
     joinRoute(ROUTES.studies, "upload", "expert-mask-compare"),
     { method: "POST", body: formData, jsonBody: false },
@@ -161,34 +211,63 @@ export function getExpertCompareSliceUrl(
   return `${buildApiUrl(joinRoute(ROUTES.studies, studyId, "expert-compare", "slices", zIndex))}?${params}`;
 }
 
-export async function getStudyMeshUrl(studyId: string): Promise<string> {
-  const res = await apiFetch<{ mesh_url: string }>(
-    joinRoute(ROUTES.studies, studyId, "mesh"),
-    { method: "GET" },
-  );
-  const meshPath = res.mesh_url || "";
-  if (meshPath.startsWith("http://") || meshPath.startsWith("https://")) {
-    return meshPath;
+/** Axial/coronal/sagittal PNG URL for standard study slice rendering. */
+export function getStudySliceUrl(
+  studyId: string,
+  zIndex: number,
+  options: {
+    windowCenter?: number;
+    windowWidth?: number;
+    orientation?: "axial" | "coronal" | "sagittal";
+    includeOverlay?: boolean;
+    overlayOpacity?: number;
+  } = {},
+): string {
+  const params = new URLSearchParams({
+    window_center: String(options.windowCenter ?? -600),
+    window_width: String(options.windowWidth ?? 1500),
+    orientation: options.orientation ?? "axial",
+    include_overlay: options.includeOverlay ? "true" : "false",
+    denoise: "false",
+  });
+  if (options.includeOverlay) {
+    params.set(
+      "overlay_opacity",
+      Math.min(1, Math.max(0, options.overlayOpacity ?? 0.6)).toFixed(2),
+    );
   }
-  return buildApiUrl(meshPath);
+
+  return `${buildApiUrl(joinRoute(ROUTES.studies, studyId, "slices", zIndex))}?${params}`;
 }
 
 /** GLB URL for the expert label mesh (after Upload DICOM expert compare). */
-export async function getExpertCompareExpertMeshUrl(studyId: string): Promise<string> {
-  const res = await apiFetch<{ mesh_url: string }>(
+export async function getExpertCompareExpertMeshUrl(
+  studyId: string,
+): Promise<string> {
+  return fetchMeshUrlFromRoute(
     joinRoute(ROUTES.studies, studyId, "expert-compare", "expert-mesh"),
-    { method: "GET" },
   );
-  const meshPath = res.mesh_url || "";
-  if (meshPath.startsWith("http://") || meshPath.startsWith("https://")) {
-    return meshPath;
-  }
-  return buildApiUrl(meshPath);
 }
+
+// ---------------------------------------------------------------------------
+// 3D meshes
+// ---------------------------------------------------------------------------
+
+export async function getStudyMeshUrl(studyId: string): Promise<string> {
+  return fetchMeshUrlFromRoute(joinRoute(ROUTES.studies, studyId, "mesh"));
+}
+
+// ---------------------------------------------------------------------------
+// Realtime sync
+// ---------------------------------------------------------------------------
 
 export function getStudyEventsUrl(studyId: string): string {
   return buildApiUrl(joinRoute(ROUTES.studies, studyId, "events"));
 }
+
+// ---------------------------------------------------------------------------
+// Volume & segmentation mask
+// ---------------------------------------------------------------------------
 
 export async function getDicomVolumeShape(
   studyId: string,
@@ -209,20 +288,11 @@ export async function getStudyMask(
   if (!response) {
     return { shape: [0, 0, 0], data: new Uint8Array() };
   }
-  const header = response.headers.get("X-Mask-Shape");
-  if (!header) {
-    throw new Error("Mask shape header missing or invalid");
-  }
-  const parts = header
-    .split(",")
-    .map((p) => parseInt(p.trim(), 10))
-    .filter((n) => !Number.isNaN(n));
-  if (parts.length !== 3 || parts.some((n) => n <= 0)) {
-    throw new Error("Mask shape header missing or invalid");
-  }
-  const [d, h, w] = parts as [number, number, number];
-  const buffer = await response.arrayBuffer();
-  const data = new Uint8Array(buffer);
+
+  const [d, h, w] = parseMaskShapeHeader(
+    response.headers.get("X-Mask-Shape"),
+  );
+  const data = new Uint8Array(await response.arrayBuffer());
   if (data.length !== d * h * w) {
     throw new Error("Mask bytes length does not match reported shape");
   }

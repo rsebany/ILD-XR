@@ -8,6 +8,12 @@ from models.db import get_session
 from models.models import NotificationORM, UserORM
 from schemas import Notification
 
+__all__ = ["create_notification_sync", "orm_to_notification"]
+
+# ---------------------------------------------------------------------------
+# Create & serialize
+# ---------------------------------------------------------------------------
+
 
 def create_notification_sync(
     title: str,

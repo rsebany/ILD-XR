@@ -1,10 +1,14 @@
+/**
+ * Welcome banner when the workspace has no patients or studies yet.
+ */
 "use client";
 
 import Link from "next/link";
 import { Upload, Users } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
-type DashboardEmptyBannerProps = {
+export type DashboardEmptyBannerProps = {
   canUpload: boolean;
   canManagePatients: boolean;
 };
@@ -13,7 +17,9 @@ export function DashboardEmptyBanner({
   canUpload,
   canManagePatients,
 }: DashboardEmptyBannerProps) {
-  if (!canUpload && !canManagePatients) return null;
+  if (!canUpload && !canManagePatients) {
+    return null;
+  }
 
   return (
     <div className="rounded-xl border border-sky-500/25 bg-gradient-to-r from-sky-500/10 via-transparent to-violet-500/5 px-4 py-4 sm:px-6">
@@ -32,7 +38,11 @@ export function DashboardEmptyBanner({
             </Button>
           )}
           {canUpload && (
-            <Button asChild size="sm" className="gap-2 bg-sky-600 hover:bg-sky-500">
+            <Button
+              asChild
+              size="sm"
+              className="gap-2 bg-sky-600 hover:bg-sky-500"
+            >
               <Link href="/upload-dicom">
                 <Upload className="h-4 w-4" />
                 Upload

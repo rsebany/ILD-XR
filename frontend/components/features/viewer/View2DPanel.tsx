@@ -6,18 +6,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createNotification } from "@/api/clients";
 import { studyService, type DicomVolumeShape } from "@/services/study";
-import { patientService } from "@/services/patient";
-import { useSettings } from "@/hooks/settings";
-import { useDicomLoader, useMaskProcessor } from "@/hooks/viewer";
-import type { Study } from "@/api/domain";
+import { useSettings, useVolumeDisplayUnit } from "@/hooks/settings";
+import {
+  useDicomLoader,
+  useMaskProcessor,
+  useResolvedStudyId,
+  useViewerCaseContext,
+} from "@/hooks/viewer";
 import { useStudyMetrics } from "@/hooks/studies";
 import { buildSegmentationMetricGroups } from "@/lib/metrics/segmentation-metric-groups";
 
 // View Sub-components
-import { View2DPanelLeftColumn } from "@/components/features/viewer/component/view2d/View2DPanelLeftColumn";
-import { View2DPanelCenterColumn } from "@/components/features/viewer/component/view2d/View2DPanelCenterColumn";
-import { View2DPanelRightColumn } from "@/components/features/viewer/component/view2d/View2DPanelRightColumn";
-import { SegmentationClassLegend } from "@/components/features/viewer/component/ui/SegmentationClassLegend";
+import { View2DPanelLeftColumn } from "@/components/features/viewer/view2d/View2DPanelLeftColumn";
+import { View2DPanelCenterColumn } from "@/components/features/viewer/view2d/View2DPanelCenterColumn";
+import { View2DPanelRightColumn } from "@/components/features/viewer/view2d/View2DPanelRightColumn";
+import { SegmentationClassLegend } from "@/components/features/viewer/ui/SegmentationClassLegend";
 
 const WINDOW_PRESETS = {
   lung_ai: { label: "Lung", center: -600, width: 1500 },
@@ -47,47 +50,15 @@ export function View2DPanel() {
   // --- 2. DATA LOADING STATE ---
   const patientId = searchParams.get("patientId") ?? "";
   const studyIdParam = searchParams.get("studyId");
-  const [studyIdFromPatient, setStudyIdFromPatient] = useState<string | null>(null);
-  const [hasDicomInDb, setHasDicomInDb] = useState(false);
-  const studyId = studyIdParam || studyIdFromPatient;
-
-  useEffect(() => {
-    if (studyIdParam) {
-      setStudyIdFromPatient(null);
-      return;
-    }
-    if (!patientId) {
-      setStudyIdFromPatient(null);
-      return;
-    }
-    let cancelled = false;
-    studyService
-      .getList()
-      .then((list) => {
-        if (cancelled) return;
-        const forPatient = list.filter((s) => s.patient_id === patientId);
-        if (forPatient.length === 0) {
-          setStudyIdFromPatient(null);
-          return;
-        }
-        forPatient.sort((a, b) => {
-          const da = a.acquisition_date ? Date.parse(a.acquisition_date) : 0;
-          const db = b.acquisition_date ? Date.parse(b.acquisition_date) : 0;
-          return db - da;
-        });
-        setStudyIdFromPatient(forPatient[0].study_id);
-      })
-      .catch(() => {
-        if (!cancelled) setStudyIdFromPatient(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [studyIdParam, patientId]);
+  const studyId = useResolvedStudyId({
+    studyIdParam,
+    patientId: patientId || null,
+  });
 
   // DICOM & Mask Data Hooks
   const { files, status: dicomLoadStatus, error: dicomLoadError } = useDicomLoader(studyId, Boolean(studyId));
   const { data: metrics, isLoading: metricsLoading } = useStudyMetrics(studyId || undefined);
+  const { patientName, studyLine } = useViewerCaseContext(studyId, patientId || null);
 
   const [rawMask, setRawMask] = useState<Uint8Array | null>(null);
   const [rawMaskShape, setRawMaskShape] = useState<[number, number, number] | null>(null);
@@ -180,9 +151,10 @@ export function View2DPanel() {
       .catch((err) => setMaskLoadError(String(err?.message ?? err)));
   }, [studyId, maskReloadToken]);
 
+  const volumeDisplayUnit = useVolumeDisplayUnit();
   const metricGroups = useMemo(
-    () => buildSegmentationMetricGroups(metrics),
-    [metrics],
+    () => buildSegmentationMetricGroups(metrics, volumeDisplayUnit),
+    [metrics, volumeDisplayUnit],
   );
 
   const onRunAiAgain = async () => {
@@ -230,8 +202,10 @@ export function View2DPanel() {
           files={files}
           dicomLoadStatus={dicomLoadStatus}
           dicomLoadError={dicomLoadError}
-          hasDicomInDb={hasDicomInDb}
+          hasDicomInDb={Boolean(studyId)}
           hasVolume={!!(files && files.length > 0)}
+          patientName={patientName}
+          studyLine={studyLine}
           windowPreset={windowPreset}
           orientation={orientation}
           onWindowPresetChange={(key, center, width) => {

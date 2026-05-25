@@ -1,9 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, User, Eye, Edit2, Trash2 } from "lucide-react";
+import { Search, User, Eye, Edit2, Trash2, Plus } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading";
-import type { Patient } from "@/api/types";  
+import { Button } from "@/components/ui/button";
+import type { Patient } from "@/api/domain";
+
+const INITIAL_VISIBLE_COUNT = 7;
 
 type Props = {
   patients: Patient[];
@@ -36,6 +40,12 @@ export function PatientTable({
   updateError,
   deleteError,
 }: Props) {
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    setShowAll(false);
+  }, [filter]);
+
   const filteredPatients = !filter.trim()
     ? patients
     : patients.filter((p) => {
@@ -46,6 +56,11 @@ export function PatientTable({
           p.notes?.toLowerCase().includes(q)
         );
       });
+
+  const visiblePatients = showAll
+    ? filteredPatients
+    : filteredPatients.slice(0, INITIAL_VISIBLE_COUNT);
+  const hiddenCount = Math.max(0, filteredPatients.length - INITIAL_VISIBLE_COUNT);
 
   const mutationError = createError || updateError || deleteError;
 
@@ -143,7 +158,7 @@ export function PatientTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-ild-border">
-                {filteredPatients.map((p) => (
+                {visiblePatients.map((p) => (
                   <tr
                     key={p.id}
                     className="group transition-colors hover:bg-ild-card-hover"
@@ -214,6 +229,32 @@ export function PatientTable({
                   ? "No patients match your filter."
                   : "No medical records found in the current view."}
               </p>
+            </div>
+          )}
+          {!isLoading && hiddenCount > 0 && (
+            <div className="border-t border-ild-border px-3 py-3 text-center sm:px-6">
+              {showAll ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  onClick={() => setShowAll(false)}
+                >
+                  Show fewer patients
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-lg border-sky-500/30 text-xs font-semibold text-sky-600 hover:bg-sky-500/10"
+                  onClick={() => setShowAll(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  View +
+                </Button>
+              )}
             </div>
           )}
         </div>

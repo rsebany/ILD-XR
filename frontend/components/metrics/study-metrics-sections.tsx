@@ -1,7 +1,13 @@
 "use client";
 
-import type { StudyMetrics } from "@/api/types/analytics";
-import { formatVolumeFromMlAsMm3, formatVolumeMm3Number } from "@/lib/metrics/format-volume-mm3";
+import type { StudyMetrics } from "@/api/domain";
+import { useVolumeDisplayUnit } from "@/hooks/settings/use-volume-display-unit";
+import {
+  formatSegmentationVolume,
+  formatSegmentationVolumeNumber,
+  formatSegmentationVolumeUnitLabel,
+} from "@/lib/metrics/format-segmentation-volume";
+import type { VolumeDisplayUnit } from "@/lib/metrics/volume-display-unit";
 import { cn } from "@/lib/utils";
 
 export function MetricsPanelDivider({
@@ -14,21 +20,34 @@ export function MetricsPanelDivider({
 
 export function TotalIldVolumeLine({
   volumeTotalMm3,
+  burdenFraction,
+  displayUnit: displayUnitProp,
   valueClassName = "text-2xl font-black text-white",
   unitClassName = "ml-1 text-sm font-normal text-slate-400",
   labelClassName = "text-[10px] font-medium text-slate-400",
 }: {
   volumeTotalMm3: number;
+  burdenFraction?: number | null;
+  displayUnit?: VolumeDisplayUnit;
   valueClassName?: string;
   unitClassName?: string;
   labelClassName?: string;
 }) {
+  const displayUnitFromSettings = useVolumeDisplayUnit();
+  const displayUnit = displayUnitProp ?? displayUnitFromSettings;
+  const burden = burdenFraction;
+
   return (
     <div>
       <p className={labelClassName}>Total ILD Volume</p>
       <p className={valueClassName}>
-        {formatVolumeMm3Number(volumeTotalMm3)}
-        <span className={unitClassName}>mm³</span>
+        {formatSegmentationVolumeNumber(displayUnit, {
+          volumeMm3: volumeTotalMm3,
+          burdenFraction: burden,
+        })}
+        <span className={unitClassName}>
+          {formatSegmentationVolumeUnitLabel(displayUnit)}
+        </span>
       </p>
     </div>
   );
@@ -71,9 +90,15 @@ const ZONE_COLORS: Record<"Upper" | "Middle" | "Lower", string> = {
 
 export function LesionClassBurdenGrid({
   metrics,
+  displayUnit: displayUnitProp,
 }: {
   metrics: StudyMetrics;
+  displayUnit?: VolumeDisplayUnit;
 }) {
+  const displayUnitFromSettings = useVolumeDisplayUnit();
+  const displayUnit = displayUnitProp ?? displayUnitFromSettings;
+  const showBurdenPct = displayUnit !== "percent";
+
   const cells = [
     {
       key: "ggo",
@@ -106,9 +131,14 @@ export function LesionClassBurdenGrid({
       {cells.map((c) => (
         <div key={c.key} className={cn("rounded-md px-2 py-1", c.boxClass)}>
           <p className={cn("font-semibold", c.titleClass)}>{c.title}</p>
-          <p className="font-mono text-white">{((c.burden ?? 0) * 100).toFixed(1)}%</p>
+          {showBurdenPct && (
+            <p className="font-mono text-white">{((c.burden ?? 0) * 100).toFixed(1)}%</p>
+          )}
           <p className="text-[10px] text-slate-400">
-            {formatVolumeFromMlAsMm3(c.volumeMl ?? 0)}
+            {formatSegmentationVolume(displayUnit, {
+              volumeMl: c.volumeMl ?? 0,
+              burdenFraction: c.burden,
+            })}
           </p>
         </div>
       ))}
@@ -118,19 +148,27 @@ export function LesionClassBurdenGrid({
 
 export function IldBurdenSummary({
   metrics,
+  displayUnit: displayUnitProp,
   burdenClassName = "text-xl font-black text-sky-400",
 }: {
   metrics: StudyMetrics;
+  displayUnit?: VolumeDisplayUnit;
   burdenClassName?: string;
 }) {
+  const displayUnitFromSettings = useVolumeDisplayUnit();
+  const displayUnit = displayUnitProp ?? displayUnitFromSettings;
   const pct = (metrics.ild_burden ?? metrics.ild_fraction) * 100;
+
   return (
     <div>
       <p className="text-[10px] font-medium text-slate-400">ILD Burden</p>
       <p className={burdenClassName}>{pct.toFixed(2)}%</p>
-      {metrics.lung_volume_ml != null && (
+      {metrics.lung_volume_ml != null && displayUnit !== "percent" && (
         <p className="text-[10px] text-slate-400">
-          Lung volume: {formatVolumeFromMlAsMm3(metrics.lung_volume_ml)}
+          Lung volume:{" "}
+          {formatSegmentationVolume(displayUnit, {
+            volumeMl: metrics.lung_volume_ml,
+          })}
         </p>
       )}
     </div>

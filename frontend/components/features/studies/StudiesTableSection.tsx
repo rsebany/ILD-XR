@@ -1,22 +1,11 @@
 import React, { useState } from "react";
-import Link from "next/link";
-import {
-  AlertCircle,
-  Box,
-  Calendar,
-  Database,
-  FileDown,
-  Glasses,
-  Layers,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { AlertCircle, Calendar, Database, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading";
 import { StudyStatusBadge } from "@/components/features/studies/StudyStatusBadge";
 import { StudyIldBar } from "@/components/features/studies/StudyIldBar";
-import { getStudyReportPdf } from "@/api/clients";
+import { StudyActionsMenu } from "@/components/features/studies/StudyActionsMenu";
 
 type StudyStatus = "Processing" | "Pending" | "Completed";
 
@@ -28,6 +17,8 @@ type Study = {
   acquisition_date?: string | null;
   status: StudyStatus;
   volume_total_mm3: number;
+  ild_fraction?: number;
+  ild_burden?: number | null;
 };
 
 interface StudiesTableSectionProps {
@@ -37,7 +28,6 @@ interface StudiesTableSectionProps {
   error: unknown;
   onDeleteStudy?: (studyId: string) => Promise<void>;
   isDeletingStudy?: boolean;
-  defaultView?: "2d" | "3d";
 }
 
 export function StudiesTableSection({
@@ -47,33 +37,8 @@ export function StudiesTableSection({
   error,
   onDeleteStudy,
   isDeletingStudy = false,
-  defaultView,
 }: StudiesTableSectionProps) {
-  const [downloadingReportStudyId, setDownloadingReportStudyId] = useState<
-    string | null
-  >(null);
   const [deletingStudyId, setDeletingStudyId] = useState<string | null>(null);
-
-  const handleDownloadReport = async (studyId: string) => {
-    try {
-      setDownloadingReportStudyId(studyId);
-      const blob = await getStudyReportPdf(studyId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `study_${studyId}_report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Failed to download PDF report.";
-      window.alert(message);
-    } finally {
-      setDownloadingReportStudyId(null);
-    }
-  };
 
   const handleDeleteStudy = async (studyId: string) => {
     if (!onDeleteStudy) return;
@@ -149,156 +114,65 @@ export function StudiesTableSection({
                   </td>
                 </tr>
               ) : (
-                studies.map((study) => (
-                  <tr
-                    key={study.study_id}
-                    className="group transition-colors hover:bg-ild-card-hover"
-                  >
-                    <td className="px-3 py-3 sm:px-6 sm:py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-foreground">
-                          {study.patient_name}
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span className="font-mono text-sky-500">
-                            {study.study_id}
+                studies.map((study) => {
+                  const ready = study.status === "Completed";
+                  return (
+                    <tr
+                      key={study.study_id}
+                      className="group transition-colors hover:bg-ild-card-hover"
+                    >
+                      <td className="px-3 py-3 sm:px-6 sm:py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-foreground">
+                            {study.patient_name}
                           </span>
-                          <span>•</span>
-                          <Calendar className="h-3 w-3" />
-                          <span>{study.acquisition_date || "—"}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono text-sky-500">
+                              {study.study_id}
+                            </span>
+                            <span>•</span>
+                            <Calendar className="h-3 w-3" />
+                            <span>{study.acquisition_date || "—"}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 sm:px-6 sm:py-4">
-                      <StudyStatusBadge status={study.status} />
-                    </td>
-                    <td className="px-3 py-3 sm:px-6 sm:py-4">
-                      <StudyIldBar
-                        volumeTotalMm3={study.volume_total_mm3}
-                        isCompleted={study.status === "Completed"}
-                      />
-                    </td>
-                    <td className="px-3 py-3 text-right sm:px-6 sm:py-4">
-                      <div className="flex flex-wrap justify-end gap-1.5 sm:gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-10 gap-2 rounded-lg border border-ild-border text-xs text-foreground hover:bg-ild-card-hover"
-                          disabled={
-                            study.status !== "Completed" ||
-                            downloadingReportStudyId === study.study_id
-                          }
-                          onClick={() => handleDownloadReport(study.study_id)}
-                        >
-                          <FileDown className="h-3.5 w-3.5" />
-                          {downloadingReportStudyId === study.study_id
-                            ? "Downloading..."
-                            : "Report PDF"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-10 gap-2 rounded-lg border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
-                          onClick={() => handleDeleteStudy(study.study_id)}
-                          disabled={
-                            !onDeleteStudy ||
-                            isDeletingStudy ||
-                            deletingStudyId === study.study_id
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          {deletingStudyId === study.study_id
-                            ? "Deleting..."
-                            : "Delete"}
-                        </Button>
-
-                        {defaultView === "3d" ? (
-                          <>
-                            <Link
-                              href={`/view3d?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg bg-sky-600 text-xs font-bold hover:bg-sky-500"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Box className="h-3.5 w-3.5" />
-                                View 3D
-                              </Button>
-                            </Link>
-                            <Link
-                              href={`/webxr?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg border-border text-xs hover:bg-ild-card-hover"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Glasses className="h-3.5 w-3.5" />
-                                WebXR
-                              </Button>
-                            </Link>
-                            <Link
-                              href={`/view2d?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg border-border text-xs hover:bg-ild-card-hover"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Layers className="h-3.5 w-3.5" />
-                                2D View
-                              </Button>
-                            </Link>
-                          </>
-                        ) : (
-                          <>
-                            <Link
-                              href={`/view2d?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg border-border text-xs hover:bg-ild-card-hover"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Layers className="h-3.5 w-3.5" />
-                                2D View
-                              </Button>
-                            </Link>
-                            <Link
-                              href={`/view3d?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg border-border text-xs hover:bg-ild-card-hover"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Box className="h-3.5 w-3.5" />
-                                View 3D
-                              </Button>
-                            </Link>
-                            <Link
-                              href={`/webxr?studyId=${study.study_id}&patientId=${study.patient_id}`}
-                            >
-                              <Button
-                                size="sm"
-                                className="h-10 gap-2 rounded-lg bg-sky-600 text-xs font-bold hover:bg-sky-500"
-                                disabled={study.status !== "Completed"}
-                              >
-                                <Glasses className="h-3.5 w-3.5" />
-                                WebXR
-                              </Button>
-                            </Link>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-3 sm:px-6 sm:py-4">
+                        <StudyStatusBadge status={study.status} />
+                      </td>
+                      <td className="px-3 py-3 sm:px-6 sm:py-4">
+                        <StudyIldBar
+                          volumeTotalMm3={study.volume_total_mm3}
+                          isCompleted={ready}
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-right sm:px-6 sm:py-4">
+                        <div className="flex flex-wrap justify-end gap-1.5 sm:gap-2">
+                          <StudyActionsMenu
+                            studyId={study.study_id}
+                            patientId={study.patient_id}
+                            ready={ready}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 gap-2 rounded-lg border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+                            onClick={() => handleDeleteStudy(study.study_id)}
+                            disabled={
+                              !onDeleteStudy ||
+                              isDeletingStudy ||
+                              deletingStudyId === study.study_id
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            {deletingStudyId === study.study_id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -307,4 +181,3 @@ export function StudiesTableSection({
     </div>
   );
 }
-

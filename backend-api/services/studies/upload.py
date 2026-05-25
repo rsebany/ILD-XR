@@ -1,3 +1,4 @@
+"""Study upload: DICOM ZIP → AI pipeline → DB, mask, mesh, and analysis cache."""
 from __future__ import annotations
 
 import json
@@ -29,6 +30,12 @@ from services.ai.inference import (
     process_dicom_zip_dir,
 )
 from services.dicom.series_read import read_sorted_dicom_slices
+
+__all__ = ["upload_study_impl"]
+
+# ---------------------------------------------------------------------------
+# Mask persistence & metric sanitization
+# ---------------------------------------------------------------------------
 
 
 def _save_mask_to_disk(mask_storage: Path, study_ext_id: str, mask: np.ndarray) -> str:
@@ -92,6 +99,11 @@ _PLACEHOLDER_PATIENT_NAMES = frozenset(
         "anonymised",
     }
 )
+
+
+# ---------------------------------------------------------------------------
+# DICOM patient metadata extraction
+# ---------------------------------------------------------------------------
 
 
 def _is_placeholder_patient_name(value: str | None) -> bool:
@@ -199,6 +211,11 @@ def _normalize_dicom_upload(
     if has_zip:
         return (file, None)
     return (None, dicom_files)
+
+
+# ---------------------------------------------------------------------------
+# Upload orchestration
+# ---------------------------------------------------------------------------
 
 
 async def upload_study_impl(

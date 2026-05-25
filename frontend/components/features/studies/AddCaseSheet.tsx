@@ -12,10 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { useUploadStudy } from "@/hooks/studies";
 import { usePatientsList } from "@/hooks/patients";
-import type { Patient } from "@/api/types";
-import { CaseSheetHeader } from "@/components/features/upload/case-sheet/CaseSheetHeader";
-import { CaseSheetPatientStep } from "@/components/features/upload/case-sheet/CaseSheetPatientStep";
-import { CaseSheetStudyStep } from "@/components/features/upload/case-sheet/CaseSheetStudyStep";
+import type { Patient } from "@/api/domain";
+import { CaseSheetHeader } from "@/components/features/studies/case-sheet/CaseSheetHeader";
+import { CaseSheetPatientStep } from "@/components/features/studies/case-sheet/CaseSheetPatientStep";
+import { CaseSheetStudyStep } from "@/components/features/studies/case-sheet/CaseSheetStudyStep";
 
 export type PatientStepData = {
   id: string;
@@ -152,7 +152,7 @@ export function AddCaseSheet({ open, onOpenChange, onSubmit }: AddCaseSheetProps
         className={
           phase === "success"
             ? "flex flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
-            : "flex w-full flex-col gap-0 overflow-hidden border-l border-ild-border bg-ild-card p-0 shadow-2xl sm:max-w-lg"
+            : "flex w-full max-h-[min(90vh,880px)] flex-col gap-0 overflow-hidden border-l border-ild-border bg-ild-card p-0 shadow-2xl sm:max-w-lg"
         }
         showCloseButton={!isUploading}
         onPointerDownOutside={(e) => {
@@ -182,15 +182,15 @@ export function AddCaseSheet({ open, onOpenChange, onSubmit }: AddCaseSheetProps
             </Button>
           </div>
         ) : (
-          <>
-            <div className="h-1 w-full bg-muted">
+          <div className="flex max-h-[min(90vh,880px)] min-h-0 flex-col overflow-hidden">
+            <div className="h-1 w-full shrink-0 bg-muted">
               <div
                 className="h-full bg-sky-500 transition-all duration-500"
                 style={{ width: step === 1 ? "50%" : "100%" }}
               />
             </div>
 
-            <div className="relative flex flex-1 flex-col px-4 py-5 sm:px-8 sm:py-6">
+            <div className="relative flex min-h-0 flex-1 flex-col">
               <DialogTitle className="sr-only">
                 Add case — step {step} of 2
               </DialogTitle>
@@ -215,65 +215,72 @@ export function AddCaseSheet({ open, onOpenChange, onSubmit }: AddCaseSheetProps
                 </div>
               )}
 
-              {uploadError && (
-                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
-                  {(() => {
-                    if (uploadError instanceof Error) {
-                      const anyErr = uploadError as {
-                        response?: { data?: { detail?: unknown } };
-                        message: string;
-                      };
-                      const detail = anyErr.response?.data?.detail;
+              <form
+                onSubmit={handleSubmit}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
+                  {uploadError && (
+                    <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+                      {(() => {
+                        if (uploadError instanceof Error) {
+                          const anyErr = uploadError as {
+                            response?: { data?: { detail?: unknown } };
+                            message: string;
+                          };
+                          const detail = anyErr.response?.data?.detail;
 
-                      if (typeof detail === "string") {
-                        return detail;
-                      }
-                      if (Array.isArray(detail)) {
-                        const msgs = detail
-                          .map((e: any) => {
-                            if (e && typeof e === "object") {
-                              return e.msg ?? e.message ?? JSON.stringify(e);
-                            }
-                            return String(e);
-                          })
-                          .join("; ");
-                        return msgs || anyErr.message;
-                      }
-                      if (detail && typeof detail === "object") {
-                        return JSON.stringify(detail);
-                      }
-                      return anyErr.message;
-                    }
+                          if (typeof detail === "string") {
+                            return detail;
+                          }
+                          if (Array.isArray(detail)) {
+                            const msgs = detail
+                              .map((e: any) => {
+                                if (e && typeof e === "object") {
+                                  return e.msg ?? e.message ?? JSON.stringify(e);
+                                }
+                                return String(e);
+                              })
+                              .join("; ");
+                            return msgs || anyErr.message;
+                          }
+                          if (detail && typeof detail === "object") {
+                            return JSON.stringify(detail);
+                          }
+                          return anyErr.message;
+                        }
 
-                    return String(uploadError);
-                  })()}
+                        return String(uploadError);
+                      })()}
+                    </div>
+                  )}
+
+                  <CaseSheetHeader step={step} />
+
+                  <div className="flex flex-col gap-6 sm:gap-8">
+                    {step === 1 && (
+                      <CaseSheetPatientStep
+                        isNewPatient={isNewPatient}
+                        patient={patient}
+                        selectedPatient={selectedPatient}
+                        patients={patients}
+                        setIsNewPatient={setIsNewPatient}
+                        setPatient={setPatient}
+                        setSelectedPatient={setSelectedPatient}
+                      />
+                    )}
+
+                    {step === 2 && (
+                      <CaseSheetStudyStep
+                        study={study}
+                        hasDicom={hasDicom}
+                        setStudy={setStudy}
+                      />
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <CaseSheetHeader step={step} />
-
-              <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-6 sm:gap-8">
-                {step === 1 && (
-                  <CaseSheetPatientStep
-                    isNewPatient={isNewPatient}
-                    patient={patient}
-                    selectedPatient={selectedPatient}
-                    patients={patients}
-                    setIsNewPatient={setIsNewPatient}
-                    setPatient={setPatient}
-                    setSelectedPatient={setSelectedPatient}
-                  />
-                )}
-
-                {step === 2 && (
-                  <CaseSheetStudyStep
-                    study={study}
-                    hasDicom={hasDicom}
-                    setStudy={setStudy}
-                  />
-                )}
-
-                <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-ild-border pt-6 sm:flex-row sm:pt-8">
+                <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-ild-border bg-ild-card px-4 py-4 sm:flex-row sm:px-8 sm:py-5">
                   {step === 2 && (
                     <Button
                       type="button"
@@ -311,7 +318,7 @@ export function AddCaseSheet({ open, onOpenChange, onSubmit }: AddCaseSheetProps
                 </div>
               </form>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

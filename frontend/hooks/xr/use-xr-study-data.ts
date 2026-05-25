@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { StudyMetrics } from "@/api/types/analytics";
+import type { StudyMetrics } from "@/api/domain";
 import { getApiBaseUrl } from "@/api/http/client";
 import { studyService, type StudySyncEvent } from "@/services/study";
 

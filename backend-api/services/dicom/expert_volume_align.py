@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 InplaneFlip = Literal["none", "flip_lr", "flip_ud", "flip_lr_ud"]
 
+__all__ = [
+    "auto_correct_inplane_flip",
+    "label_pixels_uint8_from_slice",
+    "stack_expert_volume_on_ct_grid",
+]
+
+# ---------------------------------------------------------------------------
+# Slice helpers
+# ---------------------------------------------------------------------------
+
 
 def label_pixels_uint8_from_slice(ds: Any) -> np.ndarray:
     """Categorical label plane; undo RescaleSlope/Intercept when present."""
@@ -111,6 +121,11 @@ def _match_expert_slice_to_ct_index(
     return None
 
 
+# ---------------------------------------------------------------------------
+# CT grid alignment & in-plane correction
+# ---------------------------------------------------------------------------
+
+
 def stack_expert_volume_on_ct_grid(
     expert_slices: list[Any],
     ct_slices: list[Any],
@@ -173,6 +188,11 @@ def stack_expert_volume_on_ct_grid(
     return vol, meta
 
 
+# ---------------------------------------------------------------------------
+# Orientation fix (expert compare only)
+# ---------------------------------------------------------------------------
+
+
 def auto_correct_inplane_flip(
     expert: np.ndarray,
     reference: np.ndarray,
@@ -183,6 +203,7 @@ def auto_correct_inplane_flip(
     Pick in-plane flip that maximizes foreground overlap with ``reference`` (AI mask).
 
     Fixes common L/R flips between SEG export and the study CT stack.
+    Called from ``expert_mask_compare.compare_expert_dicom_to_prediction_volume``.
     """
     ref_fg = reference > 0
     if not np.any(ref_fg) or not np.any(expert > 0):

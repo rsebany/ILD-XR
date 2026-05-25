@@ -1,3 +1,4 @@
+"""One-page ILD study PDF report (metrics, viewer QR)."""
 from __future__ import annotations
 
 from io import BytesIO
@@ -14,6 +15,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 # (label, volume in mL or None)
 PerClassRow = Tuple[str, Optional[float]]
 
+__all__ = ["PerClassRow", "build_ild_study_report_pdf"]
+
 
 def build_ild_study_report_pdf(
     *,
@@ -27,9 +30,7 @@ def build_ild_study_report_pdf(
     per_class_volumes: List[PerClassRow],
     viewer_url_for_qr: str,
 ) -> bytes:
-    """
-    Return PDF bytes (one A4 page). ``ild_burden_fraction`` is 0..1; displayed as percent.
-    """
+    """Return PDF bytes (one A4 page). ``ild_burden_fraction`` is 0..1; displayed as percent."""
     ild_fraction_pct = float(ild_burden_fraction or 0.0) * 100.0
     zonal = zonal_distribution or {}
     total_ild_ml = float(total_ild_volume_ml or 0.0)
@@ -67,7 +68,7 @@ def build_ild_study_report_pdf(
         qr_ax.axis("off")
         ax.text(0.8, 0.74, "Scan to open study", fontsize=9, ha="center", color="#555555")
 
-        y -= 0.06
+        y = 0.68
         ax.text(0.08, y, "Quantitative Metrics", fontsize=14, fontweight="bold", va="top")
         y -= 0.04
         ax.text(0.1, y, f"Total ILD Volume: {total_ild_ml:.2f} mL", fontsize=11, va="top")

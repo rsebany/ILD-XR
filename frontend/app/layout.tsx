@@ -1,10 +1,18 @@
+/**
+ * Root layout — fonts, theme, global providers, and document metadata.
+ */
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Providers } from "@/components/providers";
-import { AppToaster } from "@/components/feedback";
 
+import { AppToaster } from "@/components/feedback";
+import { Providers } from "@/components/layout/providers";
+import { ThemeProvider } from "@/components/layout/theme-provider";
+
+import "./globals.css";
+
+// ---------------------------------------------------------------------------
+// Fonts
+// ---------------------------------------------------------------------------
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +24,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// ---------------------------------------------------------------------------
+// Metadata
+// ---------------------------------------------------------------------------
+
 export const metadata: Metadata = {
   title: "ILD-XR",
-  description: "AI-powered lung disease analysis platform with WebXR visualization.",
+  description:
+    "AI-powered lung disease analysis platform with WebXR visualization.",
   icons: {
     icon: "/assets/logo.png",
   },
@@ -32,6 +45,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
 };
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
 
 export default function RootLayout({
   children,

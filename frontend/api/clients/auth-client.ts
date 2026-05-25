@@ -1,3 +1,6 @@
+/**
+ * Auth API — login, signup, session, and password recovery.
+ */
 import { apiFetch } from "../http/client";
 import { joinRoute, ROUTES } from "../http/paths";
 import type {
@@ -9,46 +12,46 @@ import type {
   User,
 } from "../domain";
 
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+function authRoute(...segments: string[]): string {
+  return joinRoute(ROUTES.auth, ...segments);
+}
+
+function authPost<T>(segment: string, body: unknown): Promise<T> {
+  return apiFetch<T>(authRoute(segment), { method: "POST", body });
+}
+
+// ---------------------------------------------------------------------------
+// Session
+// ---------------------------------------------------------------------------
+
 export async function login(payload: LoginRequest): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>(joinRoute(ROUTES.auth, "login"), {
-    method: "POST",
-    body: payload,
-  });
+  return authPost<AuthResponse>("login", payload);
 }
 
 export async function signup(payload: SignupRequest): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>(joinRoute(ROUTES.auth, "signup"), {
-    method: "POST",
-    body: payload,
-  });
+  return authPost<AuthResponse>("signup", payload);
 }
 
 export async function fetchMe(): Promise<User> {
-  return apiFetch<User>(joinRoute(ROUTES.auth, "me"), {
-    method: "GET",
-  });
+  return apiFetch<User>(authRoute("me"), { method: "GET" });
 }
+
+// ---------------------------------------------------------------------------
+// Password recovery
+// ---------------------------------------------------------------------------
 
 export async function requestPasswordReset(
   email: string,
 ): Promise<ForgotPasswordResponse> {
-  return apiFetch<ForgotPasswordResponse>(
-    joinRoute(ROUTES.auth, "forgot-password"),
-    {
-      method: "POST",
-      body: { email },
-    },
-  );
+  return authPost<ForgotPasswordResponse>("forgot-password", { email });
 }
 
 export async function resetPassword(
   payload: ResetPasswordRequest,
 ): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>(
-    joinRoute(ROUTES.auth, "reset-password"),
-    {
-      method: "POST",
-      body: payload,
-    },
-  );
+  return authPost<{ message: string }>("reset-password", payload);
 }

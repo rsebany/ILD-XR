@@ -3,13 +3,19 @@ import * as THREE from "three";
 const BAND_FRACTION = 0.12;
 
 /**
- * Backend meshes: marching_cubes on mask [Z,Y,X] → vertex (x,y,z) = (Z_mm, Y_mm, X_mm).
- * Cranio-caudal is always vertex X → rotate +90° around Z so SI aligns with world +Y.
+ * Marching-cubes verts are (z, y, x) indices × spacing → stored in GLB as
+ * Three.js (x, y, z) = (z_mm, y_mm, x_mm). Map to clinical Y-up:
+ *   X = left–right (x_mm), Y = cranio-caudal (z_mm), Z = anterior–posterior (−y_mm).
  */
-const BACKEND_SI_TO_WORLD_Y = new THREE.Euler(0, 0, Math.PI / 2, "XYZ");
+export const BACKEND_MM_TO_THREEJS = new THREE.Matrix4().set(
+  0, 0, 1, 0,
+  1, 0, 0, 0,
+  0, -1, 0, 0,
+  0, 0, 0, 1,
+);
 
-function bandCrossSectionArea(
-  root: THREE.Object3D,
+function bandCrossSectionAreaXZ(
+  positions: THREE.BufferAttribute,
   yLow: number,
   yHigh: number,
 ): number {
@@ -18,50 +24,74 @@ function bandCrossSectionArea(
   let minZ = Infinity;
   let maxZ = -Infinity;
   let count = 0;
-  const v = new THREE.Vector3();
 
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return;
-    const pos = child.geometry?.attributes?.position;
-    if (!pos) return;
-    for (let i = 0; i < pos.count; i++) {
-      v.fromBufferAttribute(pos as THREE.BufferAttribute, i);
-      child.localToWorld(v);
-      if (v.y < yLow || v.y > yHigh) continue;
-      count += 1;
-      minX = Math.min(minX, v.x);
-      maxX = Math.max(maxX, v.x);
-      minZ = Math.min(minZ, v.z);
-      maxZ = Math.max(maxZ, v.z);
-    }
-  });
+  for (let i = 0; i < positions.count; i++) {
+    const y = positions.getY(i);
+    if (y < yLow || y > yHigh) continue;
+    count += 1;
+    const x = positions.getX(i);
+    const z = positions.getZ(i);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
+  }
 
   if (count === 0) return 0;
   return Math.max(maxX - minX, 0) * Math.max(maxZ - minZ, 0);
 }
 
-/** Apex is narrower than the base; if the top band is wider, flip 180° around Y. */
-function isUpsideDownAfterYAlign(root: THREE.Object3D): boolean {
-  const box = new THREE.Box3().setFromObject(root);
-  const height = box.max.y - box.min.y;
-  if (height <= 1e-6) return false;
+/** Apex is narrower; if the +Y band is wider than the −Y band, reflect Y. */
+function reflectVerticesIfApexDown(geometry: THREE.BufferGeometry): void {
+  const pos = geometry.getAttribute("position") as THREE.BufferAttribute | undefined;
+  if (!pos || pos.count === 0) return;
+
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    yMin = Math.min(yMin, y);
+    yMax = Math.max(yMax, y);
+  }
+  const height = yMax - yMin;
+  if (height <= 1e-6) return;
 
   const band = height * BAND_FRACTION;
-  const topArea = bandCrossSectionArea(root, box.max.y - band, box.max.y);
-  const bottomArea = bandCrossSectionArea(root, box.min.y, box.min.y + band);
-  if (topArea <= 0 || bottomArea <= 0) return false;
+  const topArea = bandCrossSectionAreaXZ(pos, yMax - band, yMax);
+  const bottomArea = bandCrossSectionAreaXZ(pos, yMin, yMin + band);
+  if (topArea <= 0 || bottomArea <= 0) return;
+  if (topArea <= bottomArea) return;
 
-  return topArea > bottomArea;
+  const mid = (yMin + yMax) / 2;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    pos.setY(i, 2 * mid - y);
+  }
+  pos.needsUpdate = true;
 }
 
-/** Upright lung: apex toward world +Y (standing in the OR). */
+export function orientLungMeshGeometry(geometry: THREE.BufferGeometry): void {
+  geometry.applyMatrix4(BACKEND_MM_TO_THREEJS);
+  reflectVerticesIfApexDown(geometry);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+}
+
+/** Upright lung in View3D / XR: apex toward +Y. */
 export function applyLungAnatomicalOrientation(root: THREE.Object3D): void {
-  root.rotation.copy(BACKEND_SI_TO_WORLD_Y);
+  root.rotation.set(0, 0, 0);
+  root.scale.set(1, 1, 1);
+  root.position.set(0, 0, 0);
   root.updateMatrixWorld(true);
 
-  // Inverse du test apex/base : retourne le mesh de 180° par rapport à la version précédente.
-  if (!isUpsideDownAfterYAlign(root)) {
-    root.rotateY(Math.PI);
-    root.updateMatrixWorld(true);
-  }
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh) || !child.geometry) return;
+    const oriented = child.geometry.clone();
+    orientLungMeshGeometry(oriented);
+    child.geometry.dispose();
+    child.geometry = oriented;
+  });
+
+  root.updateMatrixWorld(true);
 }

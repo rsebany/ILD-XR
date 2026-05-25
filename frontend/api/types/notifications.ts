@@ -1,3 +1,11 @@
+/**
+ * Notification types — in-app alerts for practitioners.
+ */
+
+// ---------------------------------------------------------------------------
+// Entity
+// ---------------------------------------------------------------------------
+
 export interface Notification {
   id: number;
   title: string;
@@ -6,6 +14,10 @@ export interface Notification {
   read_at?: string | null;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// List & create
+// ---------------------------------------------------------------------------
 
 export interface NotificationListResponse {
   unread_count: number;
@@ -17,4 +29,3 @@ export interface NotificationCreate {
   message?: string;
   type?: string;
 }
-

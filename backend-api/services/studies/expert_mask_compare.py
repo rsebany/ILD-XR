@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+﻿"""Expert/reference DICOM mask vs stored AI prediction: align, remap, Dice."""
+from __future__ import annotations
 
 import logging
 import shutil
@@ -48,6 +49,15 @@ _CONSOL_TOKENS = {
     "alveolar",
     "organizing pneumonia",
 }
+
+__all__ = [
+    "compare_expert_dicom_to_prediction_volume",
+    "run_expert_mask_compare_from_upload",
+]
+
+# ---------------------------------------------------------------------------
+# Label text → class id (SEG / loose naming)
+# ---------------------------------------------------------------------------
 
 
 def _normalize_text(value: str) -> str:
@@ -115,6 +125,11 @@ def _extract_segment_class_map(expert_slices: list[Any]) -> dict[int, int]:
             return mapping
 
     return {}
+
+
+# ---------------------------------------------------------------------------
+# Volume normalization (strict expert, heuristic prediction)
+# ---------------------------------------------------------------------------
 
 
 def _normalize_prediction_volume_to_classes_123(
@@ -250,6 +265,11 @@ def _stack_label_volume_from_sorted_slices(slices: list[Any]) -> np.ndarray:
     """Fallback: stack mask DICOMs by Z sort only (no CT grid alignment)."""
     volume_slices = [label_pixels_uint8_from_slice(s) for s in slices]
     return np.stack(volume_slices, axis=0)
+
+
+# ---------------------------------------------------------------------------
+# Compare pipeline (sync core + async upload entry)
+# ---------------------------------------------------------------------------
 
 
 async def _materialize_dicom_upload_to_dir(

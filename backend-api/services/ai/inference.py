@@ -1,3 +1,4 @@
+"""Stable AI facade: re-exports pipeline, metrics, and mesh helpers for routes."""
 from __future__ import annotations
 
 from services.ai.constants import CLASS_LABELS, DicomInputError

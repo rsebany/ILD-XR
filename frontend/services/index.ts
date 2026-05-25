@@ -3,5 +3,4 @@
  * Import per domain (`@/services/study`) or from `@/services`.
  */
 export * from "./study";
-export * from "./patient";
 export * from "./upload";

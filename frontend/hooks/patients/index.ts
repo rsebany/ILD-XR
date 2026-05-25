@@ -9,3 +9,4 @@ export {
   useDeletePatient,
   usePatientMutations,
 } from "./use-patient-mutations";
+export { usePatientsPage } from "./use-patients-page";

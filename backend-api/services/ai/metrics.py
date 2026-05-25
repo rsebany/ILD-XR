@@ -1,3 +1,4 @@
+"""Segmentation metrics: volumes, zonal distribution, expert-vs-AI Dice."""
 from __future__ import annotations
 
 from typing import Dict, Optional, Tuple
@@ -5,6 +6,23 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 
 from services.ai.constants import CLASS_LABELS
+
+__all__ = [
+    "build_lobar_label_volume",
+    "build_zonal_label_volume",
+    "compute_class_metrics",
+    "compute_dice_against_ground_truth",
+    "compute_expert_vs_prediction_dice",
+    "compute_ild_volume_ml",
+    "estimate_lobar_distribution",
+    "estimate_zonal_distribution",
+    "expert_prediction_compare_diagnostics",
+    "mask_label_histogram_u8",
+]
+
+# ---------------------------------------------------------------------------
+# Per-class volume & burden
+# ---------------------------------------------------------------------------
 
 
 def compute_ild_volume_ml(mask: np.ndarray, spacing: Tuple[float, float, float]) -> float:
@@ -51,6 +69,11 @@ def compute_class_metrics(
     return metrics
 
 
+# ---------------------------------------------------------------------------
+# Zonal / lobar distribution
+# ---------------------------------------------------------------------------
+
+
 def build_zonal_label_volume(mask: np.ndarray) -> np.ndarray:
     labels = np.zeros(mask.shape, dtype=np.uint8)
     slice_sums = np.sum(mask, axis=(1, 2))
@@ -93,6 +116,11 @@ def compute_dice_against_ground_truth(
     mask: np.ndarray,
 ) -> Optional[float]:
     return None
+
+
+# ---------------------------------------------------------------------------
+# Expert mask compare (Dice & diagnostics)
+# ---------------------------------------------------------------------------
 
 
 def _dice_binary_mask(a: np.ndarray, b: np.ndarray) -> float:

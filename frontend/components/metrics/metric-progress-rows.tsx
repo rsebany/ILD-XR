@@ -1,16 +1,11 @@
 "use client";
 
-export type MetricProgressItem = {
-  label: string;
-  val: string;
-  color: string;
-  progress: number;
-};
+import type {
+  MetricProgressGroup,
+  MetricProgressItem,
+} from "@/lib/metrics/metric-progress-types";
 
-export type MetricProgressGroup = {
-  title: string;
-  items: MetricProgressItem[];
-};
+export type { MetricProgressGroup, MetricProgressItem };
 
 type Props = {
   /** Grouped metrics (preferred). */

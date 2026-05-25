@@ -8,3 +8,11 @@ DICOM_STORAGE = BASE_DIR / "data" / "dicom"
 STATIC_MESH_DIR = BASE_DIR / "static" / "meshes"
 WEIGHTS_PATH = BASE_DIR / "weights" / "best_multiclass_model.pth"
 SYNC_STORAGE = BASE_DIR / "data" / "segmentation_revisions"
+
+__all__ = [
+    "BASE_DIR",
+    "DICOM_STORAGE",
+    "STATIC_MESH_DIR",
+    "SYNC_STORAGE",
+    "WEIGHTS_PATH",
+]

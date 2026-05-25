@@ -1,6 +1,7 @@
 """
-Slicer/bridge sync under `/studies/.../segmentation-*` + per-study SSE.
+Slicer/bridge sync under ``/studies/.../segmentation-*`` plus per-study SSE.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter

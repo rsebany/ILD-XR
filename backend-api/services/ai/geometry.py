@@ -1,3 +1,4 @@
+"""Volume orientation, mask resampling, and HU-derived lung masks."""
 from __future__ import annotations
 
 from typing import Tuple
@@ -10,6 +11,17 @@ from scipy.ndimage import (
     zoom,
 )
 
+__all__ = [
+    "hwd_to_zyx",
+    "lung_mask_from_hu",
+    "resample_mask_to_shape",
+    "zyx_to_hwd",
+]
+
+# ---------------------------------------------------------------------------
+# Axis conventions (ZYX ↔ HWD)
+# ---------------------------------------------------------------------------
+
 
 def zyx_to_hwd(volume: np.ndarray) -> np.ndarray:
     """Convert backend volume orientation (Z, Y, X) -> notebook style (H, W, D)."""
@@ -19,6 +31,11 @@ def zyx_to_hwd(volume: np.ndarray) -> np.ndarray:
 def hwd_to_zyx(volume: np.ndarray) -> np.ndarray:
     """Convert notebook volume orientation (H, W, D) -> backend style (Z, Y, X)."""
     return np.transpose(volume, (2, 0, 1))
+
+
+# ---------------------------------------------------------------------------
+# Resampling & lung mask
+# ---------------------------------------------------------------------------
 
 
 def resample_mask_to_shape(

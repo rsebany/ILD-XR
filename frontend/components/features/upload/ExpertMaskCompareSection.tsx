@@ -5,7 +5,7 @@ import React from "react";
 import { toast } from "sonner";
 
 import { compareExpertMaskDicom } from "@/api/clients";
-import type { ExpertMaskCompareResponse } from "@/api/types";
+import type { ExpertMaskCompareResponse } from "@/api/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/api/http/client";

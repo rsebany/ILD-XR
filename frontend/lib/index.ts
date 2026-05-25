@@ -7,4 +7,5 @@ export * from "./auth";
 export * from "./imaging";
 export * from "./dicom";
 export * from "./dashboard";
+export * from "./studies";
 export * from "./notify";

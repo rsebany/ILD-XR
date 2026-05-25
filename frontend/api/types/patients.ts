@@ -1,4 +1,11 @@
+/**
+ * Patient types — records and create/update payloads.
+ */
 import type { Study } from "./studies";
+
+// ---------------------------------------------------------------------------
+// Patient entity
+// ---------------------------------------------------------------------------
 
 export interface Patient {
   id: string;
@@ -7,6 +14,10 @@ export interface Patient {
   notes?: string | null;
   studies: Study[];
 }
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
 
 export interface CreatePatientPayload {
   name: string;
@@ -20,4 +31,3 @@ export interface UpdatePatientPayload {
   dateOfBirth?: string;
   notes?: string;
 }
-

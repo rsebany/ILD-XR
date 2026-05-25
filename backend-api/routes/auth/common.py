@@ -1,9 +1,14 @@
+"""Shared auth route helpers: JWT claims and user response mapping."""
+
 from __future__ import annotations
 
-from models.models import UserORM, ROLE_RADIOLOGIST
+from auth.config import RESET_TOKEN_EXPIRE_HOURS
+from models.models import ROLE_RADIOLOGIST, UserORM
 from schemas import UserResponse
 
-RESET_TOKEN_EXPIRE_HOURS = 1
+# ---------------------------------------------------------------------------
+# Mappers
+# ---------------------------------------------------------------------------
 
 
 def user_to_response(u: UserORM) -> UserResponse:
@@ -24,3 +29,6 @@ def token_data(u: UserORM) -> dict:
         "medical_id": u.medical_id,
         "full_name": u.full_name,
     }
+
+
+__all__ = ["RESET_TOKEN_EXPIRE_HOURS", "token_data", "user_to_response"]

@@ -7,7 +7,7 @@ type AuthPageProps = {
   leftContent?: React.ReactNode;
 };
 
-function AuthBackdrop() {
+export function AuthBackdrop() {
   return (
     <>
       <div

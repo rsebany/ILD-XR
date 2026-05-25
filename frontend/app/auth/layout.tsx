@@ -1,3 +1,6 @@
+/**
+ * Auth segment layout — dark shell for login, signup, and password flows.
+ */
 export default function AuthLayout({
   children,
 }: {

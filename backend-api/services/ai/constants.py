@@ -1,3 +1,4 @@
+"""Shared label map and pipeline exceptions for AI services."""
 from __future__ import annotations
 
 from typing import Dict
@@ -9,3 +10,6 @@ CLASS_LABELS: Dict[int, str] = {1: "ggo", 2: "reticulation", 3: "consolidation"}
 
 class DicomInputError(ValueError):
     """Raised when uploaded imaging data is invalid for processing."""
+
+
+__all__ = ["CLASS_LABELS", "DicomInputError"]

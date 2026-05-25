@@ -1,17 +1,18 @@
+"""Study list, metrics, AI re-analysis, and study deletion."""
+
 from __future__ import annotations
+
 import random
 import shutil
 from pathlib import Path
-from typing import List
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
 from models.db import get_session
-from models.models import StudyORM, PatientORM, SegmentationResultORM
-from schemas import StudyListItem, StudyMetrics
-from services.studies.analysis_state import MASK_STORAGE, _analysis_cache
+from models.models import PatientORM, SegmentationResultORM, StudyORM
 from routes.patients.common import _resolve_patient_name
+from schemas import StudyListItem, StudyMetrics
 from services.ai.inference import (
     compute_class_metrics,
     estimate_zonal_distribution,
@@ -19,6 +20,7 @@ from services.ai.inference import (
     process_dicom_zip_dir,
 )
 from services.dicom.series_read import list_dicom_paths
+from services.studies.analysis_state import MASK_STORAGE, _analysis_cache
 
 from .common import (
     DICOM_STORAGE,
@@ -27,130 +29,78 @@ from .common import (
     _ensure_study_dicom_dir,
 )
 
+# ---------------------------------------------------------------------------
+# Router
+# ---------------------------------------------------------------------------
+
 router = APIRouter(prefix="/studies", tags=["studies"])
 
 
-@router.get(
-    "",
-    response_model=List[StudyListItem],
-    summary="List all studies (dashboard / studies table)",
-    name="studies_list",
-)
-async def list_studies():
-    with get_session() as session:
-        results = (
-            session.query(StudyORM)
-            .join(PatientORM)
-            .outerjoin(SegmentationResultORM)
-            .order_by(StudyORM.created_at.desc())
-            .all()
-        )
-
-        items = []
-        for study in results:
-            seg = study.segmentation
-            has_seg = seg is not None
-            zonal = (seg.zonal_distribution or {}) if has_seg else {}
-            # Resolve patient name, converting placeholders to external_id
-            resolved_patient_name = _resolve_patient_name(
-                study.patient.name, study.patient.external_id
-            )
-
-            items.append(
-                StudyListItem(
-                    study_id=study.external_id,
-                    patient_id=study.patient.external_id,
-                    patient_name=resolved_patient_name,
-                    modality=study.modality,
-                    ild_fraction=float(seg.ild_fraction or 0.0) if has_seg else 0.0,
-                    volume_total_mm3=(seg.total_ild_volume_ml * 1000) if has_seg else 0.0,
-                    status="Completed" if has_seg else "Processing",
-                    acquisition_date=study.created_at.isoformat() if study.created_at else None,
-                    zonal_distribution=zonal,
-                    lung_volume_ml=seg.lung_volume_ml if has_seg else None,
-                    ggo_volume_ml=seg.ggo_volume_ml if has_seg else None,
-                    reticulation_volume_ml=seg.reticulation_volume_ml if has_seg else None,
-                    consolidation_volume_ml=seg.consolidation_volume_ml if has_seg else None,
-                    ggo_burden=seg.ggo_burden if has_seg else None,
-                    reticulation_burden=seg.reticulation_burden if has_seg else None,
-                    consolidation_burden=seg.consolidation_burden if has_seg else None,
-                )
-            )
-        return items
+# ---------------------------------------------------------------------------
+# List / metrics builders
+# ---------------------------------------------------------------------------
 
 
-@router.get(
-    "/{study_id}/metrics",
-    response_model=StudyMetrics,
-    summary="Disease / ILD metrics (cache or DB)",
-    name="studies_get_metrics",
-)
-async def get_study_metrics(study_id: str):
-    if study_id in _analysis_cache:
-        cached = _analysis_cache[study_id]
-        return StudyMetrics(
-            study_id=study_id,
-            volume_total_mm3=cached["volume_total_mm3"],
-            ild_fraction=cached["ild_fraction"],
-            zonal_distribution=cached.get("zonal_distribution", {}),
-            lung_volume_ml=cached.get("lung_volume_ml"),
-            ggo_volume_ml=cached.get("ggo_volume_ml"),
-            reticulation_volume_ml=cached.get("reticulation_volume_ml"),
-            consolidation_volume_ml=cached.get("consolidation_volume_ml"),
-            ggo_burden=cached.get("ggo_burden"),
-            reticulation_burden=cached.get("reticulation_burden"),
-            consolidation_burden=cached.get("consolidation_burden"),
-            ild_burden=cached.get("ild_burden", cached.get("ild_fraction", 0.0)),
-        )
-
-    with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if not (study and study.segmentation):
-            raise HTTPException(status_code=404, detail="Metrics not found")
-
-        seg = study.segmentation
-        return StudyMetrics(
-            study_id=study_id,
-            volume_total_mm3=seg.total_ild_volume_ml * 1000,
-            ild_fraction=float(seg.ild_fraction or 0.0),
-            zonal_distribution=seg.zonal_distribution or {},
-            lung_volume_ml=seg.lung_volume_ml,
-            ggo_volume_ml=seg.ggo_volume_ml,
-            reticulation_volume_ml=seg.reticulation_volume_ml,
-            consolidation_volume_ml=seg.consolidation_volume_ml,
-            ggo_burden=seg.ggo_burden,
-            reticulation_burden=seg.reticulation_burden,
-            consolidation_burden=seg.consolidation_burden,
-            ild_burden=float(seg.ild_fraction or 0.0),
-        )
+def _study_list_item(study: StudyORM) -> StudyListItem:
+    seg = study.segmentation
+    has_seg = seg is not None
+    zonal = (seg.zonal_distribution or {}) if has_seg else {}
+    return StudyListItem(
+        study_id=study.external_id,
+        patient_id=study.patient.external_id,
+        patient_name=_resolve_patient_name(study.patient.name, study.patient.external_id),
+        modality=study.modality,
+        ild_fraction=float(seg.ild_fraction or 0.0) if has_seg else 0.0,
+        volume_total_mm3=(seg.total_ild_volume_ml * 1000) if has_seg else 0.0,
+        status="Completed" if has_seg else "Processing",
+        acquisition_date=study.created_at.isoformat() if study.created_at else None,
+        zonal_distribution=zonal,
+        lung_volume_ml=seg.lung_volume_ml if has_seg else None,
+        ggo_volume_ml=seg.ggo_volume_ml if has_seg else None,
+        reticulation_volume_ml=seg.reticulation_volume_ml if has_seg else None,
+        consolidation_volume_ml=seg.consolidation_volume_ml if has_seg else None,
+        ggo_burden=seg.ggo_burden if has_seg else None,
+        reticulation_burden=seg.reticulation_burden if has_seg else None,
+        consolidation_burden=seg.consolidation_burden if has_seg else None,
+    )
 
 
-@router.post(
-    "/{study_id}/ai-analysis",
-    response_model=StudyMetrics,
-    summary="Re-run ILD model on stored DICOM",
-    name="studies_ai_reanalysis",
-)
-async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
-    """
-    Re-run ILD segmentation on the stored DICOM series for this study;
-    overwrites the mask on disk, updates the DB row when present, and refreshes
-    the ephemeral analysis cache used by GET /metrics.
-    """
-    study_dicom_dir = _ensure_study_dicom_dir(study_id)
-    if not study_dicom_dir.exists():
-        raise HTTPException(status_code=404, detail="DICOM data not found on disk")
-    if not list_dicom_paths(study_dicom_dir, include_dicom_ext=True):
-        raise HTTPException(
-            status_code=404, detail="Study directory contains no DICOM files"
-        )
-    if not WEIGHTS_PATH.is_file():
-        raise HTTPException(status_code=500, detail="Model weights not found on server")
+def _metrics_from_cache(study_id: str, cached: dict) -> StudyMetrics:
+    return StudyMetrics(
+        study_id=study_id,
+        volume_total_mm3=cached["volume_total_mm3"],
+        ild_fraction=cached["ild_fraction"],
+        zonal_distribution=cached.get("zonal_distribution", {}),
+        lung_volume_ml=cached.get("lung_volume_ml"),
+        ggo_volume_ml=cached.get("ggo_volume_ml"),
+        reticulation_volume_ml=cached.get("reticulation_volume_ml"),
+        consolidation_volume_ml=cached.get("consolidation_volume_ml"),
+        ggo_burden=cached.get("ggo_burden"),
+        reticulation_burden=cached.get("reticulation_burden"),
+        consolidation_burden=cached.get("consolidation_burden"),
+        ild_burden=cached.get("ild_burden", cached.get("ild_fraction", 0.0)),
+    )
 
-    try:
-        mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(study_dicom_dir, WEIGHTS_PATH)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+def _metrics_from_segmentation(study_id: str, seg: SegmentationResultORM) -> StudyMetrics:
+    return StudyMetrics(
+        study_id=study_id,
+        volume_total_mm3=seg.total_ild_volume_ml * 1000,
+        ild_fraction=float(seg.ild_fraction or 0.0),
+        zonal_distribution=seg.zonal_distribution or {},
+        lung_volume_ml=seg.lung_volume_ml,
+        ggo_volume_ml=seg.ggo_volume_ml,
+        reticulation_volume_ml=seg.reticulation_volume_ml,
+        consolidation_volume_ml=seg.consolidation_volume_ml,
+        ggo_burden=seg.ggo_burden,
+        reticulation_burden=seg.reticulation_burden,
+        consolidation_burden=seg.consolidation_burden,
+        ild_burden=float(seg.ild_fraction or 0.0),
+    )
+
+
+def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
+    mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(study_dicom_dir, WEIGHTS_PATH)
 
     MASK_STORAGE.mkdir(parents=True, exist_ok=True)
     mask_disk_path = MASK_STORAGE / f"{study_id}.npy"
@@ -182,11 +132,7 @@ async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
     }
 
     with get_session() as session:
-        study = (
-            session.query(StudyORM)
-            .filter(StudyORM.external_id == study_id)
-            .first()
-        )
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
         if study and study.segmentation:
             seg = study.segmentation
             seg.total_ild_volume_ml = total_vol_ml
@@ -204,7 +150,6 @@ async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
             seg.mask_path = str(mask_disk_path)
             seg.mask_bytes = None
             seg.mask_shape = ",".join(str(x) for x in mask.shape)
-            session.commit()
 
     return StudyMetrics(
         study_id=study_id,
@@ -222,30 +167,15 @@ async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
     )
 
 
-@router.delete(
-    "/{study_id}",
-    status_code=204,
-    summary="Delete one study and related artifacts",
-    name="studies_delete",
-)
-async def delete_study(study_id: str):
-    with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if not study:
-            raise HTTPException(status_code=404, detail="Study not found")
-
-        segmentation = study.segmentation
-        volume_path = Path(study.volume_path) if study.volume_path else None
-        mesh_url = segmentation.mesh_url if segmentation else None
-        mask_path = segmentation.mask_path if segmentation else None
-
-        session.delete(study)
-        session.commit()
-
-    # Clean up ephemeral cache entry.
+def _cleanup_study_artifacts(
+    study_id: str,
+    *,
+    volume_path: Path | None,
+    mesh_url: str | None,
+    mask_path: str | None,
+) -> None:
     _analysis_cache.pop(study_id, None)
 
-    # Remove known mask file locations.
     default_mask_path = MASK_STORAGE / f"{study_id}.npy"
     if default_mask_path.exists():
         default_mask_path.unlink()
@@ -254,17 +184,109 @@ async def delete_study(study_id: str):
         if explicit_mask.exists() and explicit_mask.is_file():
             explicit_mask.unlink()
 
-    # Remove study DICOM folders (canonical and legacy location).
     dicom_dir = DICOM_STORAGE / study_id
     if dicom_dir.exists() and dicom_dir.is_dir():
         shutil.rmtree(dicom_dir)
     if volume_path and volume_path.exists() and volume_path.is_dir():
         shutil.rmtree(volume_path)
 
-    # Remove local generated mesh when URL points to static storage.
     if mesh_url:
         mesh_rel = mesh_url.strip().replace("\\", "/")
         if mesh_rel.startswith("/static/meshes/"):
             mesh_file = STATIC_MESH_DIR / mesh_rel.split("/")[-1]
             if mesh_file.exists() and mesh_file.is_file():
                 mesh_file.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "",
+    response_model=list[StudyListItem],
+    summary="List all studies (dashboard / studies table)",
+    name="studies_list",
+)
+async def list_studies() -> list[StudyListItem]:
+    with get_session() as session:
+        rows = (
+            session.query(StudyORM)
+            .join(PatientORM)
+            .outerjoin(SegmentationResultORM)
+            .order_by(StudyORM.created_at.desc())
+            .all()
+        )
+        return [_study_list_item(study) for study in rows]
+
+
+@router.get(
+    "/{study_id}/metrics",
+    response_model=StudyMetrics,
+    summary="Disease / ILD metrics (cache or DB)",
+    name="studies_get_metrics",
+)
+async def get_study_metrics(study_id: str) -> StudyMetrics:
+    if study_id in _analysis_cache:
+        return _metrics_from_cache(study_id, _analysis_cache[study_id])
+
+    with get_session() as session:
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        if not (study and study.segmentation):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metrics not found")
+        return _metrics_from_segmentation(study_id, study.segmentation)
+
+
+@router.post(
+    "/{study_id}/ai-analysis",
+    response_model=StudyMetrics,
+    summary="Re-run ILD model on stored DICOM",
+    name="studies_ai_reanalysis",
+)
+async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
+    study_dicom_dir = _ensure_study_dicom_dir(study_id)
+    if not study_dicom_dir.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
+    if not list_dicom_paths(study_dicom_dir, include_dicom_ext=True):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Study directory contains no DICOM files",
+        )
+    if not WEIGHTS_PATH.is_file():
+        raise HTTPException(status_code=500, detail="Model weights not found on server")
+
+    try:
+        return _run_ai_on_study(study_id, study_dicom_dir)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/{study_id}",
+    status_code=204,
+    summary="Delete one study and related artifacts",
+    name="studies_delete",
+)
+async def delete_study(study_id: str) -> None:
+    volume_path: Path | None = None
+    mesh_url: str | None = None
+    mask_path: str | None = None
+
+    with get_session() as session:
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        if not study:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study not found")
+
+        segmentation = study.segmentation
+        volume_path = Path(study.volume_path) if study.volume_path else None
+        mesh_url = segmentation.mesh_url if segmentation else None
+        mask_path = segmentation.mask_path if segmentation else None
+        session.delete(study)
+
+    _cleanup_study_artifacts(
+        study_id,
+        volume_path=volume_path,
+        mesh_url=mesh_url,
+        mask_path=mask_path,
+    )

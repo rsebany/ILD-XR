@@ -13,6 +13,20 @@ from typing import Any, List, Literal, Tuple
 import numpy as np
 import pydicom
 
+__all__ = [
+    "apply_hu_rescale",
+    "hu_volume_zyx_and_spacing_sync",
+    "list_dicom_paths",
+    "read_sorted_dicom_slices",
+    "spacing_zyx_mm",
+    "stack_pixel_volume_zyx_simple",
+    "stack_pixel_volume_zyx_viewer",
+]
+
+# ---------------------------------------------------------------------------
+# Discovery & slice ordering
+# ---------------------------------------------------------------------------
+
 
 def list_dicom_paths(root: Path, *, include_dicom_ext: bool = False) -> List[Path]:
     """
@@ -56,6 +70,11 @@ def read_sorted_dicom_slices(
     return slices
 
 
+# ---------------------------------------------------------------------------
+# Pixel stacking (Z, Y, X)
+# ---------------------------------------------------------------------------
+
+
 def stack_pixel_volume_zyx_simple(slices: List[Any]) -> np.ndarray:
     """One 2D frame per file (typical CT); stack as [Z, Y, X] float32."""
     volume_slices: List[np.ndarray] = []
@@ -81,6 +100,11 @@ def stack_pixel_volume_zyx_viewer(slices: List[Any]) -> np.ndarray:
         else:
             volume_slices.append(pixel_arr)
     return np.stack(volume_slices).astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# HU rescale & spacing
+# ---------------------------------------------------------------------------
 
 
 def apply_hu_rescale(volume: np.ndarray, first_slice: Any) -> np.ndarray:

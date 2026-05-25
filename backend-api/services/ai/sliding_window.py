@@ -1,8 +1,3 @@
-"""Tensor-based sliding-window inference — ILD v2.2.
-
-Accepts a 2-channel preprocessed stack (2, D, H, W) and returns a uint8
-multiclass segmentation mask (D, H, W) using per-class probability thresholds.
-"""
 from __future__ import annotations
 
 import gc
@@ -23,6 +18,12 @@ _PATCH_SIZE: Tuple[int, int, int] = (32, 128, 128)
 _STRIDE_RATIO: float = 0.5
 _TEMPERATURE: float = 0.45
 _CLASS_THRESHOLDS: Dict[int, float] = {1: 0.05, 2: 0.07, 3: 0.05}
+
+__all__ = ["sliding_window_inference"]
+
+# ---------------------------------------------------------------------------
+# Model loading
+# ---------------------------------------------------------------------------
 
 
 def _is_cuda_runtime_failure(exc: RuntimeError) -> bool:
@@ -65,6 +66,11 @@ def _load_model(weights_path: Path, device: str):
     return model
 
 
+# ---------------------------------------------------------------------------
+# Sliding-window inference
+# ---------------------------------------------------------------------------
+
+
 def sliding_window_inference(
     processed_stack: np.ndarray,
     weights_path: Path,
@@ -80,8 +86,7 @@ def sliding_window_inference(
 
     Args:
         processed_stack: float32 array of shape (2, D, H, W) as returned by
-            ``preprocess_volume_v2``.  Single-channel (D, H, W) input is also
-            accepted for backward compatibility (duplicated to 2 channels).
+            ``preprocess_volume``.
         weights_path: Path to the fine-tuned ``.pth`` checkpoint.
         device: Torch device string.
         patch_size: (p_d, p_h, p_w) inference patch dimensions.
@@ -100,13 +105,10 @@ def sliding_window_inference(
     if thresholds is None:
         thresholds = _CLASS_THRESHOLDS
 
-    # Normalise input to (2, D, H, W)
     stack = np.asarray(processed_stack, dtype=np.float32)
-    if stack.ndim == 3:
-        stack = np.stack([stack, stack], axis=0)
-    elif stack.ndim == 4 and stack.shape[0] != 2:
+    if stack.ndim != 4 or stack.shape[0] != 2:
         raise ValueError(
-            f"Expected (2,D,H,W) or (D,H,W) processed_stack, got {stack.shape}"
+            f"Expected (2,D,H,W) processed_stack, got {stack.shape}"
         )
 
     _, orig_d, orig_h, orig_w = stack.shape

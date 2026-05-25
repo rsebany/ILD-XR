@@ -1,8 +1,13 @@
+"""Role → permission matrix for API authorization."""
+
 from __future__ import annotations
 
 from models.models import ROLE_ADMIN, ROLE_RADIOLOGIST, ROLE_REFERRING
 
-# Role permission flags
+# ---------------------------------------------------------------------------
+# Permission flags per role
+# ---------------------------------------------------------------------------
+
 ROLES = {
     ROLE_RADIOLOGIST: {
         "upload_hrct": True,
@@ -42,3 +47,6 @@ def has_permission(role: str, permission: str) -> bool:
     if role == ROLE_RADIOLOGIST:
         return True
     return ROLES.get(role, {}).get(permission, False)
+
+
+__all__ = ["ROLES", "has_permission"]

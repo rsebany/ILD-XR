@@ -1,6 +1,10 @@
 """
-Authentication routes: `session_routes` (login / signup / me) and `password_routes` (reset).
+Authentication HTTP routes.
+
+- ``session_routes`` — login, signup, ``/me``
+- ``password_routes`` — forgot / reset password
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter

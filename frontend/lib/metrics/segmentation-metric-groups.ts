@@ -1,26 +1,42 @@
 import type { StudyMetrics } from "@/api/domain";
-import type { MetricProgressItem } from "@/components/metrics";
-import { formatVolumeFromMlAsMm3, formatVolumeMm3 } from "@/lib/metrics/format-volume-mm3";
+import {
+  formatSegmentationVolume,
+  metricLabelWithUnit,
+} from "@/lib/metrics/format-segmentation-volume";
+import {
+  computeIldBarFillPercent,
+  computeIldBarFillPercentFromMl,
+} from "@/lib/metrics/ild-volume-bar";
+import type {
+  MetricProgressGroup,
+  MetricProgressItem,
+} from "@/lib/metrics/metric-progress-types";
+import {
+  normalizeVolumeDisplayUnit,
+  type VolumeDisplayUnit,
+} from "@/lib/metrics/volume-display-unit";
 
-export type MetricProgressGroup = {
-  title: string;
-  items: MetricProgressItem[];
-};
+export type { MetricProgressGroup, MetricProgressItem };
 
-/** Three groups: volumes & burden, lesion patterns, craniocaudal zones (same logic as legacy flat list). */
+/** Three groups: volumes & burden, lesion patterns, craniocaudal zones. */
 export function buildSegmentationMetricGroups(
   metrics: StudyMetrics | null | undefined,
+  unit: VolumeDisplayUnit = "mm",
 ): MetricProgressGroup[] {
   if (!metrics) return [];
 
+  const displayUnit = normalizeVolumeDisplayUnit(unit);
   const ildBurden = metrics.ild_burden ?? metrics.ild_fraction;
 
   const volumes: MetricProgressItem[] = [
     {
-      label: "Total ILD volume (mm³)",
-      val: formatVolumeMm3(metrics.volume_total_mm3),
+      label: metricLabelWithUnit("Total ILD volume", displayUnit),
+      val: formatSegmentationVolume(displayUnit, {
+        volumeMm3: metrics.volume_total_mm3,
+        burdenFraction: ildBurden,
+      }),
       color: "bg-red-500",
-      progress: Math.min(100, ildBurden * 100),
+      progress: computeIldBarFillPercent(metrics.volume_total_mm3 ?? 0),
     },
   ];
 
@@ -58,13 +74,15 @@ export function buildSegmentationMetricGroups(
     const burdenFrac =
       c.burden ??
       (lungMl != null && lungMl > 0 && volumeMl != null ? volumeMl / lungMl : 0);
-    const burdenPct = burdenFrac * 100;
 
     patterns.push({
-      label: `${c.name} (mm³)`,
-      val: volumeMl != null ? formatVolumeFromMlAsMm3(volumeMl) : "—",
+      label: metricLabelWithUnit(c.name, displayUnit),
+      val: formatSegmentationVolume(displayUnit, {
+        volumeMl,
+        burdenFraction: burdenFrac,
+      }),
       color: c.color,
-      progress: Math.min(100, burdenPct),
+      progress: computeIldBarFillPercentFromMl(volumeMl ?? 0),
     });
   }
 
