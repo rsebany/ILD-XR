@@ -10,8 +10,8 @@ export type MeshClassVisibility = {
 export type XRSceneContentProps = {
   meshUrl: string;
   useMeshPlaceholder: boolean;
-  clippingValue: number;
-  cutawayEnabled?: boolean;
+  realLungEnabled?: boolean;
+  onToggleRealLung?: () => void;
   onResetView: () => void;
   studyId: string | null;
   dicomSliceCount: number;

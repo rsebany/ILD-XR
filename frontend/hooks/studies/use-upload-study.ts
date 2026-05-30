@@ -24,6 +24,7 @@ export function useUploadStudy(p0: {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["studies"] });
       queryClient.invalidateQueries({ queryKey: ["patients"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       const studyId = data.patient.studies[0]?.id;
       if (studyId) {
         toast.success("Study uploaded. AI analysis finished.");

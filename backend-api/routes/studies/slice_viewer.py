@@ -6,10 +6,12 @@ from io import BytesIO
 from typing import Any, List, Literal
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from PIL import Image, ImageDraw
 from scipy.ndimage import zoom
 
+from auth import TokenPayload, get_current_user_from_bearer_or_query, get_owned_study_or_404
+from models.db import get_session
 from services.studies.analysis_state import MASK_STORAGE
 
 from .common import (
@@ -141,7 +143,11 @@ async def get_study_slice_overlay(
     include_overlay: bool = True,
     denoise: bool = False,
     overlay_opacity: float = 0.6,
+    current_user: TokenPayload = Depends(get_current_user_from_bearer_or_query),
 ):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     vol_hu, _slices, d, h, w = _load_study_hu(study_id)
     logp = f"[SliceOverlay {study_id} {orientation} z={z_index}]"
 
@@ -232,7 +238,11 @@ async def get_study_expert_compare_slice_dual(
     window_width: int = 1500,
     denoise: bool = False,
     overlay_opacity: float = 0.6,
+    current_user: TokenPayload = Depends(get_current_user_from_bearer_or_query),
 ):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     vol_hu, _slices, d, h, w = _load_study_hu(study_id)
     max_idx = d - 1
     if z_index < 0 or z_index >= d:

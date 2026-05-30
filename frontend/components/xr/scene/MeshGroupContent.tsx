@@ -12,7 +12,7 @@ type Props = {
   meshGroupRef: RefObject<THREE.Group | null>;
   meshUrl: string;
   useMeshPlaceholder: boolean;
-  clippingValue: number;
+  realLungEnabled: boolean;
   meshGroupPosition: [number, number, number];
   meshScale: number;
   meshDisplayRotation: [number, number, number];
@@ -34,7 +34,7 @@ type Props = {
 
 export function MeshGroupContent(props: Props) {
   const {
-    meshGroupRef, meshUrl, useMeshPlaceholder, clippingValue, meshGroupPosition, meshScale,
+    meshGroupRef, meshUrl, useMeshPlaceholder, realLungEnabled, meshGroupPosition, meshScale,
     meshDisplayRotation, classVisibility, isPresenting, useHtmlControls, rotateMeshY,
     resetMeshRotation, flipMesh, onPresetLesions, onAddPanel, onClearPanels, placingLesion,
     setPlacingLesion, userLesions, onClearLesions, onSurfacePick,
@@ -45,8 +45,7 @@ export function MeshGroupContent(props: Props) {
       <LungMesh
         meshUrl={meshUrl}
         usePlaceholder={useMeshPlaceholder}
-        clippingPlaneConstant={clippingValue}
-        clippingPlaneNormal={[0, 1, 0]}
+        realLungEnabled={realLungEnabled}
         classVisibility={classVisibility}
         autoRotate={false}
         allowDrag={false}

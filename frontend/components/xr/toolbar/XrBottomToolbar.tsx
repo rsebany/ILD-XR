@@ -26,8 +26,8 @@ export function XrBottomToolbar({
   isCheckingSupport = false,
   meshClassVisibility,
   onToggleMeshClass,
-  cutawayEnabled = false,
-  onToggleCutaway,
+  realLungEnabled = false,
+  onToggleRealLung,
 }: XrBottomToolbarProps) {
   return (
     <div
@@ -40,8 +40,8 @@ export function XrBottomToolbar({
         onFocusStack={onFocusStack}
         onFocusMesh={onFocusMesh}
         onBalancedView={onBalancedView}
-        cutawayEnabled={cutawayEnabled}
-        onToggleCutaway={onToggleCutaway}
+        realLungEnabled={realLungEnabled}
+        onToggleRealLung={onToggleRealLung}
       />
       <ZoomToolbarGroup onZoomIn={onZoomIn} onZoomOut={onZoomOut} />
       <LayersToolbarGroup meshClassVisibility={meshClassVisibility} onToggleMeshClass={onToggleMeshClass} />

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from auth.roles import has_permission
-from auth.tokens import TokenPayload, get_token_payload
+from auth.tokens import TokenPayload, decode_token, get_token_payload
 
 # ---------------------------------------------------------------------------
 # Security scheme
@@ -32,6 +32,38 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> TokenPayload:
     payload = get_token_payload(credentials)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
+
+
+def _token_payload_from_raw_token(token: str | None) -> TokenPayload | None:
+    if not token or not token.strip():
+        return None
+    payload = decode_token(token.strip())
+    if not payload:
+        return None
+    from models.models import ROLE_RADIOLOGIST
+
+    return TokenPayload(
+        sub=payload.get("sub", ""),
+        email=payload.get("email", ""),
+        role=payload.get("role", ROLE_RADIOLOGIST),
+        medical_id=payload.get("medical_id", ""),
+        full_name=payload.get("full_name", ""),
+    )
+
+
+async def get_current_user_from_bearer_or_query(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    access_token: Annotated[str | None, Query(alias="access_token")] = None,
+) -> TokenPayload:
+    """Bearer auth, or ``?access_token=`` for image/SSE clients that cannot set headers."""
+    payload = get_token_payload(credentials) or _token_payload_from_raw_token(access_token)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,6 +97,7 @@ def require_role(permission: str):
 __all__ = [
     "bearer_scheme",
     "get_current_user",
+    "get_current_user_from_bearer_or_query",
     "get_current_user_optional",
     "require_role",
 ]

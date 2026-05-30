@@ -4,18 +4,17 @@ import * as THREE from "three";
 import { LungMeshClipping } from "./lung-mesh-clipping";
 import type { LungMeshCoreProps } from "./lung-mesh.types";
 import {
-  useClippingPlane,
   useLungMeshAutoRotate,
   useLungMeshPointerHandlers,
 } from "./use-lung-mesh-interaction";
+import type { MeshVisualPreset } from "../viewers/three-viewer.types";
 
 export function LungMeshGltf(
   props: Omit<LungMeshCoreProps, "usePlaceholder">,
 ) {
   const {
     meshUrl,
-    clippingPlaneConstant,
-    clippingPlaneNormal = [0, 1, 0],
+    realLungEnabled = false,
     classVisibility,
     onWorldDragDelta,
     autoRotate = true,
@@ -26,7 +25,7 @@ export function LungMeshGltf(
   } = props;
   const { scene } = useGLTF(meshUrl);
   const lungRef = useRef<THREE.Group>(null);
-  const clippingPlane = useClippingPlane(clippingPlaneConstant, clippingPlaneNormal);
+  const visualPreset: MeshVisualPreset = realLungEnabled ? "anatomicalLung" : "anatomicalSemi";
   const { isGrabbing, handlers } = useLungMeshPointerHandlers({
     onWorldDragDelta,
     allowDrag,
@@ -46,9 +45,8 @@ export function LungMeshGltf(
     >
       <LungMeshClipping
         scene={scene}
-        clippingPlane={clippingPlane}
         classVisibility={classVisibility}
-        visualPreset="anatomicalSemi"
+        visualPreset={visualPreset}
       />
     </group>
   );

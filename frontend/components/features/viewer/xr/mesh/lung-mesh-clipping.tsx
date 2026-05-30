@@ -8,7 +8,6 @@ import type { LungMeshClippingProps } from "./lung-mesh.types";
 
 export function LungMeshClipping({
   scene,
-  clippingPlane,
   classVisibility,
   visualPreset = "default",
 }: LungMeshClippingProps & {
@@ -29,7 +28,7 @@ export function LungMeshClipping({
         ? (child.material as THREE.Material[])
         : [child.material as THREE.Material];
       mats.forEach((m) => {
-        m.clippingPlanes = [clippingPlane];
+        m.clippingPlanes = [];
         m.clipIntersection = false;
         m.side = THREE.DoubleSide;
       });
@@ -45,7 +44,7 @@ export function LungMeshClipping({
     const normalizedScale = 1.6 / maxDim;
 
     return { clone, center, normalizedScale };
-  }, [scene, clippingPlane, classVisibility, visualPreset]);
+  }, [scene, classVisibility, visualPreset]);
 
   const offset = preparedScene.center
     .clone()

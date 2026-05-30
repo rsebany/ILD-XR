@@ -23,7 +23,7 @@ import { XrSceneLoadingFallback } from "./XrSceneLoadingFallback";
 
 export function XRSceneContent(props: XRSceneContentProps) {
   const {
-    meshUrl, useMeshPlaceholder, clippingValue, onResetView, studyId, dicomSliceCount,
+    meshUrl, useMeshPlaceholder, realLungEnabled = false, onToggleRealLung, onResetView, studyId, dicomSliceCount,
     currentDicomSlice, onDicomSliceChange, focusStackNonce, focusMeshNonce, focusBalancedNonce,
     meshScale, classVisibility, onZoomIn, onZoomOut, onPresetAll, onPresetLesions, onPresetShell,
     onToggleMeshClass, sceneVariant = "vr", arQuality = "performance", arPerformanceMode = false,
@@ -85,7 +85,7 @@ export function XRSceneContent(props: XRSceneContentProps) {
               meshGroupRef={meshGroupRef}
               meshUrl={meshUrl}
               useMeshPlaceholder={useMeshPlaceholder}
-              clippingValue={clippingValue}
+              realLungEnabled={realLungEnabled}
               meshGroupPosition={meshState.meshGroupPosition}
               meshScale={meshScale}
               meshDisplayRotation={meshState.meshDisplayRotation}
@@ -110,6 +110,7 @@ export function XRSceneContent(props: XRSceneContentProps) {
               onPresetShell={onPresetShell}
               onToggleMeshClass={onToggleMeshClass}
               onArQualityChange={onArQualityChange}
+              onToggleRealLung={onToggleRealLung ?? (() => {})}
               onCenterAr={placeInFront}
               rotateMeshY={meshState.rotateMeshY}
               resetMeshRotation={meshState.resetMeshRotation}

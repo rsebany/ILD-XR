@@ -7,7 +7,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from auth import TokenPayload, get_current_user
+from auth import TokenPayload, get_current_user, get_owned_study_or_404
+from models.db import get_session
 from schemas import ExpertMaskCompareResponse, UploadStudyResponse
 from services.studies.analysis_state import MASK_STORAGE
 from services.studies.expert_mask_compare import run_expert_mask_compare_from_upload
@@ -89,8 +90,11 @@ async def compare_expert_mask_to_prediction(
         default=None,
         description="Multiple expert mask .dcm/.dicom files",
     ),
-    _: TokenPayload = Depends(get_current_user),
+    current_user: TokenPayload = Depends(get_current_user),
 ) -> ExpertMaskCompareResponse:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     try:
         payload = await run_expert_mask_compare_from_upload(
             study_id=study_id,

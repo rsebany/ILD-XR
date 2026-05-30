@@ -7,8 +7,7 @@ import { LungMeshCore, LungMeshErrorBoundary } from "./mesh";
 type LungMeshProps = {
   meshUrl: string;
   usePlaceholder?: boolean;
-  clippingPlaneConstant: number;
-  clippingPlaneNormal?: [number, number, number];
+  realLungEnabled?: boolean;
   classVisibility?: {
     ggo: boolean;
     reticulation: boolean;
@@ -45,8 +44,7 @@ export function LungMesh(props: LungMeshProps) {
       <LungMeshCore
         meshUrl={props.meshUrl}
         usePlaceholder={props.usePlaceholder}
-        clippingPlaneConstant={props.clippingPlaneConstant}
-        clippingPlaneNormal={props.clippingPlaneNormal}
+        realLungEnabled={props.realLungEnabled}
         classVisibility={props.classVisibility}
         onWorldDragDelta={props.onWorldDragDelta}
         autoRotate={props.autoRotate}

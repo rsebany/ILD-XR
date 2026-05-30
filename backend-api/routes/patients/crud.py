@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from auth import (
+    TokenPayload,
+    get_current_user,
+    get_owned_patient_or_404,
+    is_unscoped_role,
+    patients_query,
+    user_id_from_token,
+)
 from models.db import get_session
 from models.models import PatientORM
 from schemas import Patient, PatientCreate, PatientUpdate
@@ -23,18 +31,15 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 _DEFAULT_DOB = date(1900, 1, 1)
 
 
+def _owner_filter_id(current_user: TokenPayload) -> int | None:
+    if is_unscoped_role(current_user.role):
+        return None
+    return user_id_from_token(current_user)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_patient_or_404(session: Session, patient_id: str) -> PatientORM:
-    patient = (
-        session.query(PatientORM).filter(PatientORM.external_id == patient_id).first()
-    )
-    if not patient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-    return patient
 
 
 def _allocate_external_id(session: Session) -> str:
@@ -57,13 +62,22 @@ def _allocate_external_id(session: Session) -> str:
 @router.get(
     "",
     response_model=list[Patient],
-    summary="List all patients",
+    summary="List patients for the current user",
     name="patients_list",
 )
-async def list_patients() -> list[Patient]:
+async def list_patients(
+    current_user: TokenPayload = Depends(get_current_user),
+) -> list[Patient]:
     with get_session() as session:
-        patients = session.query(PatientORM).order_by(PatientORM.id.desc()).all()
-        return [patient_orm_to_schema(p) for p in patients]
+        patients = (
+            patients_query(session, current_user)
+            .order_by(PatientORM.id.desc())
+            .all()
+        )
+        return [
+            patient_orm_to_schema(p, owner_user_id=_owner_filter_id(current_user))
+            for p in patients
+        ]
 
 
 @router.get(
@@ -72,9 +86,15 @@ async def list_patients() -> list[Patient]:
     summary="Get one patient",
     name="patients_get",
 )
-async def get_patient(patient_id: str) -> Patient:
+async def get_patient(
+    patient_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> Patient:
     with get_session() as session:
-        return patient_orm_to_schema(_get_patient_or_404(session, patient_id))
+        return patient_orm_to_schema(
+            get_owned_patient_or_404(session, patient_id, current_user),
+            owner_user_id=_owner_filter_id(current_user),
+        )
 
 
 @router.post(
@@ -84,7 +104,10 @@ async def get_patient(patient_id: str) -> Patient:
     summary="Create patient",
     name="patients_create",
 )
-async def create_patient(payload: PatientCreate) -> Patient:
+async def create_patient(
+    payload: PatientCreate,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> Patient:
     with get_session() as session:
         patient = PatientORM(
             external_id=_allocate_external_id(session),
@@ -92,10 +115,11 @@ async def create_patient(payload: PatientCreate) -> Patient:
             date_of_birth=payload.dateOfBirth or _DEFAULT_DOB,
             sex=(payload.sex or "U").strip().upper()[:1] or "U",
             notes=payload.notes,
+            user_id=user_id_from_token(current_user),
         )
         session.add(patient)
         session.flush()
-        return patient_orm_to_schema(patient)
+        return patient_orm_to_schema(patient, owner_user_id=_owner_filter_id(current_user))
 
 
 @router.put(
@@ -104,9 +128,13 @@ async def create_patient(payload: PatientCreate) -> Patient:
     summary="Update patient",
     name="patients_update",
 )
-async def update_patient(patient_id: str, payload: PatientUpdate) -> Patient:
+async def update_patient(
+    patient_id: str,
+    payload: PatientUpdate,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> Patient:
     with get_session() as session:
-        patient = _get_patient_or_404(session, patient_id)
+        patient = get_owned_patient_or_404(session, patient_id, current_user)
 
         if payload.name is not None:
             patient.name = payload.name
@@ -116,7 +144,7 @@ async def update_patient(patient_id: str, payload: PatientUpdate) -> Patient:
             patient.notes = payload.notes
 
         session.flush()
-        return patient_orm_to_schema(patient)
+        return patient_orm_to_schema(patient, owner_user_id=_owner_filter_id(current_user))
 
 
 @router.delete(
@@ -125,6 +153,9 @@ async def update_patient(patient_id: str, payload: PatientUpdate) -> Patient:
     summary="Delete patient",
     name="patients_delete",
 )
-async def delete_patient(patient_id: str) -> None:
+async def delete_patient(
+    patient_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> None:
     with get_session() as session:
-        session.delete(_get_patient_or_404(session, patient_id))
+        session.delete(get_owned_patient_or_404(session, patient_id, current_user))

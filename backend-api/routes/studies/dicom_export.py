@@ -8,11 +8,11 @@ import zipfile
 from io import BytesIO
 from urllib.parse import quote_plus
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from auth import TokenPayload, get_current_user, get_owned_study_or_404
 from models.db import get_session
-from models.models import PatientORM, SegmentationResultORM, StudyORM
 from routes.patients.common import _resolve_patient_name
 from services.dicom.series_read import list_dicom_paths
 from services.studies.pdf import build_ild_study_report_pdf
@@ -72,7 +72,13 @@ def _viewer_url(study_id: str, patient_external_id: str | None) -> str:
     summary="Download study DICOM series as ZIP",
     name="studies_dicom_zip",
 )
-async def get_study_dicom_zip(study_id: str):
+async def get_study_dicom_zip(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     study_dicom_dir = _ensure_study_dicom_dir(study_id)
     if not study_dicom_dir.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
@@ -93,17 +99,12 @@ async def get_study_dicom_zip(study_id: str):
     summary="Download one-page ILD study PDF (QR to viewer)",
     name="studies_report_pdf",
 )
-async def get_study_report_pdf(study_id: str):
+async def get_study_report_pdf(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+):
     with get_session() as session:
-        study = (
-            session.query(StudyORM)
-            .join(PatientORM)
-            .outerjoin(SegmentationResultORM)
-            .filter(StudyORM.external_id == study_id)
-            .first()
-        )
-        if not study:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study not found")
+        study = get_owned_study_or_404(session, study_id, current_user)
         if not study.segmentation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

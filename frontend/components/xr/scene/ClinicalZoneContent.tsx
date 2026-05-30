@@ -13,7 +13,7 @@ type Props = {
   meshGroupRef: RefObject<THREE.Group | null>;
   meshUrl: string;
   useMeshPlaceholder: boolean;
-  clippingValue: number;
+  realLungEnabled: boolean;
   meshGroupPosition: [number, number, number];
   meshScale: number;
   meshDisplayRotation: [number, number, number];
@@ -38,6 +38,7 @@ type Props = {
   onPresetShell: () => void;
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
   onArQualityChange: (next: ArQualityPreset) => void;
+  onToggleRealLung: () => void;
   onCenterAr: () => void;
   rotateMeshY: (d: 1 | -1) => void;
   resetMeshRotation: () => void;
@@ -68,6 +69,8 @@ export function ClinicalZoneContent(props: Props) {
           isArImmersive={props.isArImmersive}
           arQuality={props.arQuality}
           onArQualityChange={props.onArQualityChange}
+          realLungEnabled={props.realLungEnabled}
+          onToggleRealLung={props.onToggleRealLung}
           onCenterAr={props.onCenterAr}
         />
       ) : null}

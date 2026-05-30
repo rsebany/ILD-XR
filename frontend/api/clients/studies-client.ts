@@ -8,6 +8,7 @@ import {
   apiFetchBlob,
   apiFetchRawAllow404,
   buildApiUrl,
+  appendAccessTokenParam,
 } from "../http/client";
 import { joinRoute, ROUTES } from "../http/paths";
 import type {
@@ -208,6 +209,7 @@ export function getExpertCompareSliceUrl(
     overlay_opacity: Math.min(1, Math.max(0, overlayOpacity)).toFixed(2),
     denoise: "false",
   });
+  appendAccessTokenParam(params);
   return `${buildApiUrl(joinRoute(ROUTES.studies, studyId, "expert-compare", "slices", zIndex))}?${params}`;
 }
 
@@ -236,6 +238,7 @@ export function getStudySliceUrl(
       Math.min(1, Math.max(0, options.overlayOpacity ?? 0.6)).toFixed(2),
     );
   }
+  appendAccessTokenParam(params);
 
   return `${buildApiUrl(joinRoute(ROUTES.studies, studyId, "slices", zIndex))}?${params}`;
 }
@@ -262,7 +265,11 @@ export async function getStudyMeshUrl(studyId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export function getStudyEventsUrl(studyId: string): string {
-  return buildApiUrl(joinRoute(ROUTES.studies, studyId, "events"));
+  const params = new URLSearchParams();
+  appendAccessTokenParam(params);
+  const query = params.toString();
+  const base = buildApiUrl(joinRoute(ROUTES.studies, studyId, "events"));
+  return query ? `${base}?${query}` : base;
 }
 
 // ---------------------------------------------------------------------------

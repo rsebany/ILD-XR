@@ -152,6 +152,25 @@ export function getAuthHeader(): Record<string, string> {
   }
 }
 
+/** Append JWT for `<img>` / EventSource requests that cannot send Authorization headers. */
+export function appendAccessTokenParam(params: URLSearchParams): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    const parsed = JSON.parse(raw) as { access_token?: string };
+    if (parsed.access_token) {
+      params.set("access_token", parsed.access_token);
+    }
+  } catch {
+    // ignore malformed auth storage
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Core fetch
 // ---------------------------------------------------------------------------

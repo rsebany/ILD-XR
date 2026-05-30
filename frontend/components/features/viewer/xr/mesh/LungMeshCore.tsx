@@ -8,8 +8,7 @@ export function LungMeshCore(props: LungMeshCoreProps) {
   if (props.usePlaceholder) {
     return (
       <LungMeshPlaceholder
-        clippingPlaneConstant={props.clippingPlaneConstant}
-        clippingPlaneNormal={props.clippingPlaneNormal}
+        realLungEnabled={props.realLungEnabled}
         onWorldDragDelta={props.onWorldDragDelta}
         autoRotate={props.autoRotate}
         allowDrag={props.allowDrag}
@@ -20,8 +19,7 @@ export function LungMeshCore(props: LungMeshCoreProps) {
   return (
     <LungMeshGltf
       meshUrl={props.meshUrl}
-      clippingPlaneConstant={props.clippingPlaneConstant}
-      clippingPlaneNormal={props.clippingPlaneNormal}
+      realLungEnabled={props.realLungEnabled}
       classVisibility={props.classVisibility}
       onWorldDragDelta={props.onWorldDragDelta}
       autoRotate={props.autoRotate}

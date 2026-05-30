@@ -320,6 +320,7 @@ export function useUploadIntake() {
       toast.success("Study saved. AI analysis finished.");
       queryClient.invalidateQueries({ queryKey: ["studies"] });
       queryClient.invalidateQueries({ queryKey: ["patients"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
 
       if (newPid && study.id) {
         setViewerChoice({

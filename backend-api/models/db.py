@@ -61,10 +61,47 @@ def _ensure_database_exists() -> None:
     default_engine.dispose()
 
 
+def _patch_patients_user_id_column() -> None:
+    """Add patients.user_id on existing databases and backfill from study owners."""
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                """
+                ALTER TABLE patients
+                ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_patients_user_id ON patients (user_id)
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                UPDATE patients AS p
+                SET user_id = sub.user_id
+                FROM (
+                    SELECT DISTINCT ON (s.patient_id) s.patient_id, s.user_id
+                    FROM studies AS s
+                    WHERE s.user_id IS NOT NULL
+                    ORDER BY s.patient_id, s.created_at ASC
+                ) AS sub
+                WHERE p.id = sub.patient_id AND p.user_id IS NULL
+                """
+            )
+        )
+        conn.commit()
+
+
 def init_db() -> None:
     """Create tables defined by ORM models."""
     _ensure_database_exists()
     Base.metadata.create_all(bind=engine)
+    _patch_patients_user_id_column()
 
 
 # ---------------------------------------------------------------------------

@@ -61,9 +61,11 @@ def _segmentation_summary_dict(seg) -> dict:
     }
 
 
-def patient_orm_to_schema(p: PatientORM) -> Patient:
+def patient_orm_to_schema(p: PatientORM, *, owner_user_id: int | None = None) -> Patient:
     studies = []
     for st in p.studies or []:
+        if owner_user_id is not None and st.user_id != owner_user_id:
+            continue
         seg = st.segmentation
         studies.append(
             {

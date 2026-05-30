@@ -31,6 +31,6 @@ export type XrBottomToolbarProps = {
   isCheckingSupport?: boolean;
   meshClassVisibility: MeshClassVisibility;
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
-  cutawayEnabled?: boolean;
-  onToggleCutaway?: () => void;
+  realLungEnabled?: boolean;
+  onToggleRealLung?: () => void;
 };

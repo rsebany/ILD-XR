@@ -63,6 +63,9 @@ class UserORM(Base):
         "NotificationORM", back_populates="user", cascade="all, delete-orphan"
     )
     studies: Mapped[List["StudyORM"]] = relationship("StudyORM", back_populates="user")
+    patients: Mapped[List["PatientORM"]] = relationship(
+        "PatientORM", back_populates="user"
+    )
 
 
 class PatientORM(Base):
@@ -74,7 +77,11 @@ class PatientORM(Base):
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
     sex: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
 
+    user: Mapped[Optional["UserORM"]] = relationship("UserORM", back_populates="patients")
     studies: Mapped[List["StudyORM"]] = relationship(
         "StudyORM", back_populates="patient", cascade="all, delete-orphan"
     )

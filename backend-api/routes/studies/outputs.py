@@ -6,9 +6,10 @@ import re
 from io import BytesIO
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from auth import TokenPayload, get_current_user, get_owned_study_or_404
 from models.db import get_session
 from models.models import StudyORM
 from schemas import DicomVolumeShape
@@ -107,7 +108,13 @@ def _safe_study_file_token(study_id: str) -> str:
     summary="3D mesh URL (GLB) for XR / viewer",
     name="studies_mesh_url",
 )
-async def get_study_mesh(study_id: str) -> dict:
+async def get_study_mesh(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> dict:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     if study_id in _analysis_cache and "mesh_url" in _analysis_cache[study_id]:
         mesh_url = _analysis_cache[study_id]["mesh_url"]
         if not isinstance(mesh_url, str) or not mesh_url.strip():
@@ -115,8 +122,8 @@ async def get_study_mesh(study_id: str) -> dict:
         return {"mesh_url": mesh_url}
 
     with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if not (study and study.segmentation and study.segmentation.mesh_url):
+        study = get_owned_study_or_404(session, study_id, current_user)
+        if not (study.segmentation and study.segmentation.mesh_url):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesh not found for this study")
         return {"mesh_url": study.segmentation.mesh_url}
 
@@ -131,8 +138,14 @@ async def get_study_mesh(study_id: str) -> dict:
     summary="GLB mesh from last expert DICOM compare",
     name="studies_expert_compare_expert_mesh",
 )
-async def get_expert_compare_expert_mesh(study_id: str) -> dict:
+async def get_expert_compare_expert_mesh(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> dict:
     """Build or return cached GLB from ``{study_id}.expert_compare.npy`` (remapped expert labels)."""
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     npy_path = MASK_STORAGE / f"{study_id}.expert_compare.npy"
     if not npy_path.is_file():
         raise HTTPException(
@@ -199,7 +212,13 @@ async def get_expert_compare_expert_mesh(study_id: str) -> dict:
     summary="Raw segmentation mask bytes (X-Mask-Shape header)",
     name="studies_mask_bytes",
 )
-async def get_study_mask(study_id: str):
+async def get_study_mask(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     mask_path = MASK_STORAGE / f"{study_id}.npy"
     if mask_path.exists():
         arr = np.load(mask_path).astype("uint8")
@@ -211,8 +230,8 @@ async def get_study_mask(study_id: str):
         return _mask_streaming_response(arr)
 
     with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if study and study.segmentation and study.segmentation.mask_bytes:
+        study = get_owned_study_or_404(session, study_id, current_user)
+        if study.segmentation and study.segmentation.mask_bytes:
             seg = study.segmentation
             if not seg.mask_shape:
                 raise HTTPException(status_code=422, detail="Mask shape metadata missing for this study.")
@@ -261,7 +280,13 @@ async def get_study_mask(study_id: str):
     summary="Native DICOM volume shape + spacing (not mask grid)",
     name="studies_dicom_shape",
 )
-async def get_study_dicom_shape(study_id: str) -> DicomVolumeShape:
+async def get_study_dicom_shape(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> DicomVolumeShape:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     study_dicom_dir = _ensure_study_dicom_dir(study_id)
     if not study_dicom_dir.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")

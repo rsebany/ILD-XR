@@ -2,15 +2,13 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { LungMeshCoreProps } from "./lung-mesh.types";
 import {
-  useClippingPlane,
   useLungMeshAutoRotate,
   useLungMeshPointerHandlers,
 } from "./use-lung-mesh-interaction";
 
 type PlaceholderProps = Pick<
   LungMeshCoreProps,
-  | "clippingPlaneConstant"
-  | "clippingPlaneNormal"
+  | "realLungEnabled"
   | "onWorldDragDelta"
   | "autoRotate"
   | "allowDrag"
@@ -18,15 +16,12 @@ type PlaceholderProps = Pick<
 >;
 
 export function LungMeshPlaceholder({
-  clippingPlaneConstant,
-  clippingPlaneNormal = [0, 1, 0],
   onWorldDragDelta,
   autoRotate = true,
   allowDrag = true,
   layoutGroupPosition = [0, 1.2, 0.5],
 }: PlaceholderProps) {
   const lungRef = useRef<THREE.Group>(null);
-  const clippingPlane = useClippingPlane(clippingPlaneConstant, clippingPlaneNormal);
   const { isGrabbing, handlers } = useLungMeshPointerHandlers({
     onWorldDragDelta,
     allowDrag,
@@ -42,11 +37,9 @@ export function LungMeshPlaceholder({
         emissiveIntensity: 0.2,
         metalness: 0.15,
         roughness: 0.7,
-        clippingPlanes: [clippingPlane],
-        clipIntersection: false,
         side: THREE.DoubleSide,
       }),
-    [clippingPlane],
+    [],
   );
 
   return (

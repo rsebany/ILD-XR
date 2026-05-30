@@ -20,7 +20,7 @@ type Props = {
   isImmersiveSupported: boolean;
   isCheckingSupport: boolean;
   meshClassVisibility: MeshClassVisibility;
-  cutawayEnabled: boolean;
+  realLungEnabled: boolean;
   onFocusStack: () => void;
   onFocusMesh: () => void;
   onBalancedView: () => void;
@@ -30,7 +30,7 @@ type Props = {
   onPresetLesions: () => void;
   onPresetShell: () => void;
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
-  onToggleCutaway: () => void;
+  onToggleRealLung: () => void;
   onEnterImmersive: () => void | Promise<void>;
   onToggleFullscreen: () => void;
 };
@@ -39,8 +39,8 @@ export function XrExperienceChrome(props: Props) {
   const {
     mode, isPresenting, studyId, syncConnected, metrics, xrError, meshError, isLoading,
     preparingImmersive, onExitImmersive, alternateLabHref, isImmersiveSupported, isCheckingSupport,
-    meshClassVisibility, cutawayEnabled, onFocusStack, onFocusMesh, onBalancedView, onZoomIn,
-    onZoomOut, onPresetAll, onPresetLesions, onPresetShell, onToggleMeshClass, onToggleCutaway,
+    meshClassVisibility, realLungEnabled, onFocusStack, onFocusMesh, onBalancedView, onZoomIn,
+    onZoomOut, onPresetAll, onPresetLesions, onPresetShell, onToggleMeshClass, onToggleRealLung,
     onEnterImmersive, onToggleFullscreen,
   } = props;
 
@@ -75,8 +75,8 @@ export function XrExperienceChrome(props: Props) {
           onPresetShell={onPresetShell}
           meshClassVisibility={meshClassVisibility}
           onToggleMeshClass={onToggleMeshClass}
-          cutawayEnabled={cutawayEnabled}
-          onToggleCutaway={onToggleCutaway}
+          realLungEnabled={realLungEnabled}
+          onToggleRealLung={onToggleRealLung}
           onEnterImmersiveCentered={onEnterImmersive}
           onToggleFullscreen={onToggleFullscreen}
           alternateLabHref={alternateLabHref}

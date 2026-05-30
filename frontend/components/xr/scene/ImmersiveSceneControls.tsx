@@ -17,6 +17,8 @@ type Props = {
   isArImmersive: boolean;
   arQuality: ArQualityPreset;
   onArQualityChange: (next: ArQualityPreset) => void;
+  realLungEnabled: boolean;
+  onToggleRealLung: () => void;
   onCenterAr: () => void;
 };
 
@@ -31,6 +33,8 @@ export function ImmersiveSceneControls({
   isArImmersive,
   arQuality,
   onArQualityChange,
+  realLungEnabled,
+  onToggleRealLung,
   onCenterAr,
 }: Props) {
   return (
@@ -44,6 +48,7 @@ export function ImmersiveSceneControls({
       <ImmersiveToggleButton label="Retic" active={classVisibility.reticulation} position={[-0.13, 0.04, 0]} activeColor="#7c3aed" onSelect={() => onToggleMeshClass("reticulation")} />
       <ImmersiveToggleButton label="Cons" active={classVisibility.consolidation} position={[0.13, 0.04, 0]} activeColor="#d97706" onSelect={() => onToggleMeshClass("consolidation")} />
       <ImmersiveToggleButton label="Shell" active={classVisibility.lung_shell} position={[0.39, 0.04, 0]} activeColor="#334155" onSelect={() => onToggleMeshClass("lung_shell")} />
+      <ImmersiveToggleButton label="Real" active={realLungEnabled} position={[0, -0.08, 0]} activeColor="#d97706" onSelect={onToggleRealLung} />
       {isArImmersive ? (
         <>
           <ImmersiveButton label="Center" position={[0, -0.22, 0]} color="#0369a1" width={0.28} onSelect={onCenterAr} />

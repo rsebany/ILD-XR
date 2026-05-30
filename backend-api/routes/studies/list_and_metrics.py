@@ -7,8 +7,14 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from auth import (
+    TokenPayload,
+    get_current_user,
+    get_owned_study_or_404,
+    studies_query,
+)
 from models.db import get_session
 from models.models import PatientORM, SegmentationResultORM, StudyORM
 from routes.patients.common import _resolve_patient_name
@@ -20,6 +26,7 @@ from services.ai.inference import (
     process_dicom_zip_dir,
 )
 from services.dicom.series_read import list_dicom_paths
+from services.notifications.service import notify_ai_analysis_complete, notify_ai_analysis_failed
 from services.studies.analysis_state import MASK_STORAGE, _analysis_cache
 
 from .common import (
@@ -167,6 +174,29 @@ def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
     )
 
 
+def _study_owner_user_id(study_id: str) -> int | None:
+    with get_session() as session:
+        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        return study.user_id if study else None
+
+
+def _notify_user_for_study(
+    study_id: str,
+    current_user: TokenPayload | None,
+    *,
+    on_success: bool,
+    error: str = "",
+    context: str = "mask",
+) -> None:
+    user_id = int(current_user.sub) if current_user else _study_owner_user_id(study_id)
+    if user_id is None:
+        return
+    if on_success:
+        notify_ai_analysis_complete(study_id=study_id, user_id=user_id, context=context)
+    else:
+        notify_ai_analysis_failed(study_id=study_id, user_id=user_id, error=error)
+
+
 def _cleanup_study_artifacts(
     study_id: str,
     *,
@@ -206,13 +236,15 @@ def _cleanup_study_artifacts(
 @router.get(
     "",
     response_model=list[StudyListItem],
-    summary="List all studies (dashboard / studies table)",
+    summary="List studies for the current user",
     name="studies_list",
 )
-async def list_studies() -> list[StudyListItem]:
+async def list_studies(
+    current_user: TokenPayload = Depends(get_current_user),
+) -> list[StudyListItem]:
     with get_session() as session:
         rows = (
-            session.query(StudyORM)
+            studies_query(session, current_user)
             .join(PatientORM)
             .outerjoin(SegmentationResultORM)
             .order_by(StudyORM.created_at.desc())
@@ -227,12 +259,22 @@ async def list_studies() -> list[StudyListItem]:
     summary="Disease / ILD metrics (cache or DB)",
     name="studies_get_metrics",
 )
-async def get_study_metrics(study_id: str) -> StudyMetrics:
+async def get_study_metrics(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> StudyMetrics:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     if study_id in _analysis_cache:
         return _metrics_from_cache(study_id, _analysis_cache[study_id])
 
     with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
+        study = (
+            studies_query(session, current_user)
+            .filter(StudyORM.external_id == study_id)
+            .first()
+        )
         if not (study and study.segmentation):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metrics not found")
         return _metrics_from_segmentation(study_id, study.segmentation)
@@ -244,7 +286,13 @@ async def get_study_metrics(study_id: str) -> StudyMetrics:
     summary="Re-run ILD model on stored DICOM",
     name="studies_ai_reanalysis",
 )
-async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
+async def run_study_ai_analysis(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> StudyMetrics:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     study_dicom_dir = _ensure_study_dicom_dir(study_id)
     if not study_dicom_dir.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
@@ -257,8 +305,11 @@ async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
         raise HTTPException(status_code=500, detail="Model weights not found on server")
 
     try:
-        return _run_ai_on_study(study_id, study_dicom_dir)
+        metrics = _run_ai_on_study(study_id, study_dicom_dir)
+        _notify_user_for_study(study_id, current_user, on_success=True, context="mask")
+        return metrics
     except ValueError as exc:
+        _notify_user_for_study(study_id, current_user, on_success=False, error=str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -268,15 +319,16 @@ async def run_study_ai_analysis(study_id: str) -> StudyMetrics:
     summary="Delete one study and related artifacts",
     name="studies_delete",
 )
-async def delete_study(study_id: str) -> None:
+async def delete_study(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> None:
     volume_path: Path | None = None
     mesh_url: str | None = None
     mask_path: str | None = None
 
     with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if not study:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Study not found")
+        study = get_owned_study_or_404(session, study_id, current_user)
 
         segmentation = study.segmentation
         volume_path = Path(study.volume_path) if study.volume_path else None

@@ -12,7 +12,8 @@ import type { ArQualityPreset, MeshClassVisibility, XrExperienceMode } from "./t
 type SceneProps = {
   meshUrl: string;
   useMeshPlaceholder: boolean;
-  cutaway: { enabled: boolean; planeConstant: number };
+  realLungEnabled: boolean;
+  onToggleRealLung: () => void;
   studyId: string | null;
   dicomSliceCount: number;
   currentDicomSlice: number;
@@ -48,7 +49,7 @@ type Props = {
 
 export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, scene }: Props) {
   const {
-    meshUrl, useMeshPlaceholder, cutaway, studyId, dicomSliceCount, currentDicomSlice,
+    meshUrl, useMeshPlaceholder, realLungEnabled, onToggleRealLung, studyId, dicomSliceCount, currentDicomSlice,
     setCurrentDicomSlice, focusStackNonce, focusMeshNonce, focusBalancedNonce, meshScale,
     meshClassVisibility, onResetView, applyAllOnPreset, applyLesionsOnlyPreset, applyShellOnlyPreset,
     toggleMeshClass, setMeshScale, setArQuality, syncConnected, isDicomPlaying, toggleDicomPlayback,
@@ -63,7 +64,7 @@ export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, 
         camera={{ position: xrPreviewCameraPose().position, fov: 64 }}
         dpr={mode === "ar" ? (arPerformanceMode ? [1, 1] : arQuality === "quality" ? [1, 1.25] : [1, 1]) : [1, 2]}
         gl={{
-          localClippingEnabled: true,
+          localClippingEnabled: false,
           powerPreference: arPerformanceMode ? "low-power" : "high-performance",
           antialias: mode !== "ar" || (!arPerformanceMode && arQuality === "quality"),
           stencil: false,
@@ -80,8 +81,8 @@ export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, 
           <XRSceneContent
             meshUrl={meshUrl}
             useMeshPlaceholder={useMeshPlaceholder}
-            clippingValue={cutaway.planeConstant}
-            cutawayEnabled={cutaway.enabled}
+            realLungEnabled={realLungEnabled}
+            onToggleRealLung={onToggleRealLung}
             onResetView={onResetView}
             studyId={studyId}
             dicomSliceCount={dicomSliceCount}

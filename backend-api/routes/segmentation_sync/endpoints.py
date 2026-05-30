@@ -7,9 +7,15 @@ from pathlib import Path
 from time import perf_counter
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from auth import (
+    TokenPayload,
+    get_current_user,
+    get_current_user_from_bearer_or_query,
+    get_owned_study_or_404,
+)
 from models.db import get_session
 from models.models import SegmentationResultORM, StudyORM
 from schemas import (
@@ -33,7 +39,6 @@ from .helpers import (
     load_dicom_volume_and_spacing,
     now_utc,
     parse_revision_geometry,
-    require_study,
     validate_mask_shape_matches_dicom,
     validate_revision_labels,
     validate_spacing_matches_dicom,
@@ -151,7 +156,13 @@ async def _publish_sync_events(
     summary="Segmentation sync: latest revision",
     name="seg_sync_status",
 )
-async def get_segmentation_sync_status(study_id: str) -> SegmentationSyncStatus:
+async def get_segmentation_sync_status(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user_from_bearer_or_query),
+) -> SegmentationSyncStatus:
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     manifest = load_manifest(SYNC_STORAGE, study_id)
     revisions = manifest.get("revisions", [])
     latest = as_revision_info(study_id, revisions[-1]) if revisions else None
@@ -171,11 +182,12 @@ async def get_segmentation_sync_status(study_id: str) -> SegmentationSyncStatus:
 async def post_segmentation_revision(
     study_id: str,
     payload: SegmentationRevisionCreate,
+    current_user: TokenPayload = Depends(get_current_user),
 ) -> SegmentationUpdateResponse:
     started = perf_counter()
 
     with get_session() as session:
-        require_study(session, study_id)
+        get_owned_study_or_404(session, study_id, current_user)
 
     shape_zyx, spacing_zyx_mm, orientation = parse_revision_geometry(payload)
     volume_hu, dicom_spacing = load_dicom_volume_and_spacing(study_id)
@@ -224,8 +236,8 @@ async def post_segmentation_revision(
     )
 
     with get_session() as session:
-        study = session.query(StudyORM).filter(StudyORM.external_id == study_id).first()
-        if study and study.segmentation:
+        study = get_owned_study_or_404(session, study_id, current_user)
+        if study.segmentation:
             _update_segmentation_row(
                 study.segmentation,
                 class_metrics=class_metrics,
@@ -261,7 +273,14 @@ async def post_segmentation_revision(
     summary="Download revision mask (raw bytes, X-Mask-Shape)",
     name="seg_sync_revision_mask",
 )
-async def get_segmentation_revision_mask(study_id: str, revision_id: int):
+async def get_segmentation_revision_mask(
+    study_id: str,
+    revision_id: int,
+    current_user: TokenPayload = Depends(get_current_user_from_bearer_or_query),
+):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     manifest = load_manifest(SYNC_STORAGE, study_id)
     revisions = manifest.get("revisions", [])
     match = next(
@@ -286,9 +305,15 @@ async def get_segmentation_revision_mask(study_id: str, revision_id: int):
     summary="Server-Sent Events: segmentation + mesh + metrics for study",
     name="seg_sync_events_stream",
 )
-async def stream_study_events(study_id: str):
+async def stream_study_events(
+    study_id: str,
+    current_user: TokenPayload = Depends(get_current_user_from_bearer_or_query),
+):
+    with get_session() as session:
+        get_owned_study_or_404(session, study_id, current_user)
+
     async def _event_stream():
-        status = await get_segmentation_sync_status(study_id)
+        status = await get_segmentation_sync_status(study_id, current_user)
         yield f"event: segmentation.status\ndata: {status.model_dump_json()}\n\n"
         async for event in study_event_hub.subscribe(study_id):
             yield f"event: {event.get('event', 'message')}\ndata: {json.dumps(event)}\n\n"

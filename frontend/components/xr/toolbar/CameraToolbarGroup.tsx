@@ -8,16 +8,16 @@ type Props = {
   onFocusStack: () => void;
   onFocusMesh: () => void;
   onBalancedView: () => void;
-  cutawayEnabled?: boolean;
-  onToggleCutaway?: () => void;
+  realLungEnabled?: boolean;
+  onToggleRealLung?: () => void;
 };
 
 export function CameraToolbarGroup({
   onFocusStack,
   onFocusMesh,
   onBalancedView,
-  cutawayEnabled,
-  onToggleCutaway,
+  realLungEnabled,
+  onToggleRealLung,
 }: Props) {
   const btn =
     "h-8 shrink-0 bg-slate-950/70 px-2 text-xs sm:h-9 sm:px-3";
@@ -32,18 +32,19 @@ export function CameraToolbarGroup({
       <Button type="button" variant="outline" size="sm" onClick={onBalancedView} className={`${btn} border-sky-500/40 text-sky-100 hover:bg-sky-950/80`}>
         Balance
       </Button>
-      {onToggleCutaway ? (
+      {onToggleRealLung ? (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={onToggleCutaway}
+          onClick={onToggleRealLung}
+          title="Opaque realistic lung tissue"
           className={cn(
-            `${btn} border-rose-500/40 hover:bg-rose-950/80`,
-            cutawayEnabled ? "text-rose-100" : "text-slate-300",
+            `${btn} border-amber-500/40 hover:bg-amber-950/80`,
+            realLungEnabled ? "text-amber-100" : "text-slate-300",
           )}
         >
-          Cutaway
+          Real lung
         </Button>
       ) : null}
     </ToolbarCluster>

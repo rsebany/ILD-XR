@@ -5,8 +5,8 @@ export type LungMeshCoreProps = {
   meshUrl: string;
   /** Procedural mesh (no glTF fetch) when no real mesh URL exists. */
   usePlaceholder?: boolean;
-  clippingPlaneConstant: number;
-  clippingPlaneNormal?: [number, number, number];
+  /** Opaque tissue-like shell; when false, semi-transparent shell (default XR lab). */
+  realLungEnabled?: boolean;
   classVisibility?: {
     ggo: boolean;
     reticulation: boolean;
@@ -31,6 +31,5 @@ export type LungMeshCoreProps = {
 
 export type LungMeshClippingProps = {
   scene: THREE.Group;
-  clippingPlane: THREE.Plane;
   classVisibility?: LungMeshCoreProps["classVisibility"];
 };

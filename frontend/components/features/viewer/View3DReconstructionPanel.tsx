@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createNotification } from "@/api/clients";
 
 import { studyService, type DicomVolumeShape } from "@/services/study";
 import {
@@ -189,13 +188,9 @@ export function View3DReconstructionPanel() {
       await studyService.runAiAnalysis(studyId);
       await queryClient.invalidateQueries({ queryKey: ["studies", "metrics", studyId] });
       await queryClient.invalidateQueries({ queryKey: ["studies"] });
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setShowAiMesh(true);
       setMeshReloadToken((t) => t + 1);
-      await createNotification({
-        title: "AI analysis complete",
-        message: `Study ${studyId} mesh and metrics were updated.`,
-        type: "analysis",
-      }).catch(() => undefined);
       toast.success("AI analysis complete. Mesh and metrics were updated.", {
         id: toastId,
       });
@@ -205,11 +200,7 @@ export function View3DReconstructionPanel() {
           ? String((e as { message: string }).message)
           : "AI analysis failed.";
       setReanalyzeError(msg);
-      await createNotification({
-        title: "AI analysis failed",
-        message: msg,
-        type: "analysis",
-      }).catch(() => undefined);
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast.error(msg, { id: toastId });
     } finally {
       setReanalyzeLoading(false);

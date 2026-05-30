@@ -21,7 +21,7 @@ export function XrExperiencePage({ mode }: Props) {
   const studyId = searchParams.get("studyId");
   const fallbackMesh = searchParams.get("mesh");
 
-  const [cutaway, setCutaway] = useState({ enabled: false, planeConstant: 0.12 });
+  const [realLungEnabled, setRealLungEnabled] = useState(false);
   const [focusStackNonce, setFocusStackNonce] = useState(0);
   const [focusMeshNonce, setFocusMeshNonce] = useState(0);
   const [focusBalancedNonce, setFocusBalancedNonce] = useState(0);
@@ -78,7 +78,7 @@ export function XrExperiencePage({ mode }: Props) {
         isImmersiveSupported={session.isImmersiveSupported}
         isCheckingSupport={session.isCheckingSupport}
         meshClassVisibility={presets.meshClassVisibility}
-        cutawayEnabled={cutaway.enabled}
+        realLungEnabled={realLungEnabled}
         onFocusStack={() => setFocusStackNonce((v) => v + 1)}
         onFocusMesh={() => setFocusMeshNonce((v) => v + 1)}
         onBalancedView={() => setFocusBalancedNonce((v) => v + 1)}
@@ -88,7 +88,7 @@ export function XrExperiencePage({ mode }: Props) {
         onPresetLesions={presets.applyLesionsOnlyPreset}
         onPresetShell={presets.applyShellOnlyPreset}
         onToggleMeshClass={presets.toggleMeshClass}
-        onToggleCutaway={() => setCutaway((p) => ({ ...p, enabled: !p.enabled }))}
+        onToggleRealLung={() => setRealLungEnabled((v) => !v)}
         onEnterImmersive={() => immersive.handleEnterImmersive(() => setFocusBalancedNonce((v) => v + 1))}
         onToggleFullscreen={toggleFullscreen}
       />
@@ -100,7 +100,8 @@ export function XrExperiencePage({ mode }: Props) {
         scene={{
           meshUrl: study.effectiveMeshUrl,
           useMeshPlaceholder: study.useMeshPlaceholder,
-          cutaway,
+          realLungEnabled,
+          onToggleRealLung: () => setRealLungEnabled((v) => !v),
           studyId,
           dicomSliceCount: study.dicomSliceCount,
           currentDicomSlice: study.currentDicomSlice,

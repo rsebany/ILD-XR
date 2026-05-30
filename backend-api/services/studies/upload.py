@@ -16,7 +16,13 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
-from auth import get_current_user_optional, TokenPayload
+from auth import (
+    TokenPayload,
+    assert_patient_access,
+    get_current_user_optional,
+    get_owned_patient_or_404,
+    user_id_from_token,
+)
 from models.db import get_session
 from models.models import PatientORM, SegmentationResultORM, StudyORM, XRViewORM
 from schemas import Patient, SegmentationResult, Study, UploadStudyResponse, XRView
@@ -30,6 +36,7 @@ from services.ai.inference import (
     process_dicom_zip_dir,
 )
 from services.dicom.series_read import read_sorted_dicom_slices
+from services.notifications.service import notify_ai_analysis_complete, notify_ai_analysis_failed
 
 __all__ = ["upload_study_impl"]
 
@@ -418,20 +425,19 @@ async def upload_study_impl(
                 detail=f"Could not persist DICOM files to storage: {exc}",
             ) from exc
 
-        try:
-            user_db_id = int(str(current_user.sub).strip())
-        except (TypeError, ValueError) as exc:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid session subject; please sign in again.",
-            ) from exc
+        user_db_id = user_id_from_token(current_user)
 
         try:
             with get_session() as session:
                 p_ext_id = payload.get("id") or generate_patient_external_id()
-                patient_orm = (
-                    session.query(PatientORM).filter(PatientORM.external_id == p_ext_id).first()
-                )
+                if is_registry_link:
+                    patient_orm = get_owned_patient_or_404(session, p_ext_id, current_user)
+                else:
+                    patient_orm = (
+                        session.query(PatientORM)
+                        .filter(PatientORM.external_id == p_ext_id)
+                        .first()
+                    )
                 if not patient_orm:
                     dob_value = payload.get("dob")
                     parsed_dob = date(1900, 1, 1)
@@ -446,10 +452,12 @@ async def upload_study_impl(
                         name=payload.get("name", "Unknown"),
                         date_of_birth=parsed_dob,
                         sex=payload.get("sex", "U"),
+                        user_id=user_db_id,
                     )
                     session.add(patient_orm)
                     session.flush()
                 else:
+                    assert_patient_access(session, patient_orm, current_user)
                     merged_display_name = str(payload.get("name") or "").strip()
                     if _is_meaningful_patient_name(form_incoming_name):
                         patient_orm.name = form_incoming_name
@@ -570,6 +578,12 @@ async def upload_study_impl(
                     notes=patient_orm.notes,
                     studies=[study_model],
                 )
+
+            notify_ai_analysis_complete(
+                study_id=study_ext_id,
+                user_id=user_db_id,
+                context="mesh",
+            )
 
             return UploadStudyResponse(study_id=study_ext_id, patient=patient_model)
         except IntegrityError as exc:
