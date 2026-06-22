@@ -43,8 +43,8 @@ ROLES = {
 
 
 def has_permission(role: str, permission: str) -> bool:
-    # Product policy: radiologists are full-access users.
-    if role == ROLE_RADIOLOGIST:
+    # Product policy: radiologists and admins are full-access users.
+    if role in (ROLE_RADIOLOGIST, ROLE_ADMIN):
         return True
     return ROLES.get(role, {}).get(permission, False)
 

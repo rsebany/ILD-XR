@@ -20,4 +20,6 @@ export type AppSidebarPage =
   | "patients"
   | "studies"
   | "upload_dicom"
-  | "settings";
+  | "settings"
+  | "admin_dashboard"
+  | "admin_users";

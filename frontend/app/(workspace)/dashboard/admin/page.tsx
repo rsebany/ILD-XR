@@ -11,25 +11,24 @@ import { WorkspaceShell } from "@/components/layout";
 import { useRole } from "@/hooks/app";
 
 export default function AdminPage() {
-  const { isAdmin, can } = useRole();
+  const { isSystemAdmin } = useRole();
   const router = useRouter();
-  const canManageUsers = can("user_management");
 
   useEffect(() => {
-    if (!isAdmin && !canManageUsers) {
+    if (!isSystemAdmin) {
       router.replace("/dashboard");
     }
-  }, [isAdmin, canManageUsers, router]);
+  }, [isSystemAdmin, router]);
 
-  if (!isAdmin && !canManageUsers) {
+  if (!isSystemAdmin) {
     return null;
   }
 
   return (
     <WorkspaceShell
-      activePage="dashboard"
+      activePage="admin_dashboard"
       title="System Administration"
-      breadcrumb="Dashboard / Admin"
+      breadcrumb="Administration / Dashboard"
     >
       <AdminDashboard />
     </WorkspaceShell>

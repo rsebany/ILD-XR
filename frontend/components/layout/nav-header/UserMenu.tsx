@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ChevronDown, User } from "lucide-react";
+import { ChevronDown, Shield, User, UserCog } from "lucide-react";
+
+import { useRole } from "@/hooks/app";
 
 type UserMenuProps = {
   open: boolean;
@@ -9,6 +11,8 @@ type UserMenuProps = {
 };
 
 export function UserMenu({ open, userName, onToggle, onLogout }: UserMenuProps) {
+  const { isSystemAdmin } = useRole();
+
   return (
     <div className="relative">
       <button
@@ -28,9 +32,31 @@ export function UserMenu({ open, userName, onToggle, onLogout }: UserMenuProps) 
         <>
           <div className="fixed inset-0 z-10" aria-hidden="true" onClick={onToggle} />
           <div
-            className="absolute right-0 z-20 mt-2 w-40 rounded-lg border border-border bg-card py-1 text-xs shadow-lg"
+            className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-border bg-card py-1 text-xs shadow-lg"
             role="menu"
           >
+            {isSystemAdmin && (
+              <>
+                <Link
+                  href="/dashboard/admin"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-foreground hover:bg-muted/70"
+                  role="menuitem"
+                  onClick={onToggle}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Admin Dashboard
+                </Link>
+                <Link
+                  href="/admin/users"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-foreground hover:bg-muted/70"
+                  role="menuitem"
+                  onClick={onToggle}
+                >
+                  <UserCog className="h-3.5 w-3.5" />
+                  Manage Users
+                </Link>
+              </>
+            )}
             <Link
               href="/settings"
               className="flex w-full items-center px-3 py-1.5 text-left text-foreground hover:bg-muted/70"

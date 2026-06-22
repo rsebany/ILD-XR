@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronsUpDown, LogOut, Settings, Shield } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, Shield, UserCog } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -35,7 +35,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const { logout } = useAuth();
-  const { isAdmin } = useRole();
+  const { isSystemAdmin } = useRole();
   const confirm = useConfirm();
 
   const handleLogout = async () => {
@@ -102,11 +102,19 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              {isAdmin && (
+              {isSystemAdmin && (
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/admin">
                     <Shield className="mr-2 h-4 w-4" />
-                    <span>Administration</span>
+                    <span>Admin Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {isSystemAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/users">
+                    <UserCog className="mr-2 h-4 w-4" />
+                    <span>Manage Users</span>
                   </Link>
                 </DropdownMenuItem>
               )}

@@ -11,10 +11,7 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from common.bootstrap import ensure_backend_api_on_path
 from common.users_cli import format_created_at, iter_users
-
-ensure_backend_api_on_path()
 
 
 def parse_args() -> argparse.Namespace:

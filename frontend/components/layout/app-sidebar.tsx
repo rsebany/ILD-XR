@@ -13,6 +13,7 @@ import { AppLogo } from "@/components/layout/app-logo";
 import { NavMain } from "@/components/layout/nav-main";
 import { NavUser } from "@/components/layout/nav-user";
 import { AppSidebarPage } from "@/api/domain";
+import { useAuth } from "@/contexts/auth-context";
 
 type AppSidebarProps = {
   activePage: AppSidebarPage;
@@ -20,6 +21,7 @@ type AppSidebarProps = {
 
 export function AppSidebar({ activePage }: AppSidebarProps) {
   const { state } = useSidebar();
+  const { user } = useAuth();
 
   return (
     <Sidebar
@@ -49,6 +51,17 @@ export function AppSidebar({ activePage }: AppSidebarProps) {
       <SidebarContent className="gap-0 px-1 py-2 text-sm">
         <NavMain activePage={activePage} />
       </SidebarContent>
+      {user ? (
+        <SidebarFooter className="border-t border-ild-border/60 p-2">
+          <NavUser
+            user={{
+              name: user.full_name,
+              email: user.email,
+              avatar: "",
+            }}
+          />
+        </SidebarFooter>
+      ) : null}
     </Sidebar>
   );
 }

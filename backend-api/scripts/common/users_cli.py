@@ -5,6 +5,11 @@ import sys
 from datetime import datetime
 from typing import Iterable
 
+from common.bootstrap import ensure_backend_api_on_path
+
+# Must run before `import auth` — scripts/auth/ would shadow backend-api/auth/.
+ensure_backend_api_on_path()
+
 from auth import _generate_medical_id, hash_password
 from models.db import get_session
 from models.models import (

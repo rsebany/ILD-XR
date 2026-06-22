@@ -11,6 +11,26 @@ export interface AdminUserListItem {
   created_at: string;
 }
 
+export interface AdminCreateUserRequest {
+  full_name: string;
+  email: string;
+  role: string;
+  password: string;
+}
+
+export interface AdminUpdateUserRequest {
+  full_name?: string;
+  email?: string;
+  role?: string;
+  password?: string;
+}
+
+export const ADMIN_USER_ROLES = [
+  { value: "radiologist", label: "Radiologist / Pulmonologist" },
+  { value: "referring_physician", label: "Referring Physician" },
+  { value: "admin", label: "System Admin" },
+] as const;
+
 export interface HealthCheckResponse {
   status: string;
   infrastructure: string;

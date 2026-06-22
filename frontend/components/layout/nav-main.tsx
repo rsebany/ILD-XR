@@ -2,7 +2,14 @@
 
 import type React from "react";
 import Link from "next/link";
-import { LayoutDashboard, Users, FolderOpen, Upload } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  FolderOpen,
+  Upload,
+  Shield,
+  UserCog,
+} from "lucide-react";
 
 import {
   SidebarGroup,
@@ -20,6 +27,7 @@ type NavItem = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   requiresAdmin?: boolean;
+  requiresSystemAdmin?: boolean;
   requiredPermissions?: string[];
 };
 
@@ -67,6 +75,26 @@ const navSections: NavSection[] = [
       },
     ],
   },
+  {
+    id: "admin",
+    label: "Administration",
+    items: [
+      {
+        id: "admin_dashboard",
+        label: "Admin Dashboard",
+        href: "/dashboard/admin",
+        icon: Shield,
+        requiresSystemAdmin: true,
+      },
+      {
+        id: "admin_users",
+        label: "Manage Users",
+        href: "/admin/users",
+        icon: UserCog,
+        requiresSystemAdmin: true,
+      },
+    ],
+  },
 ];
 
 type NavMainProps = {
@@ -74,11 +102,11 @@ type NavMainProps = {
 };
 
 export function NavMain({ activePage }: NavMainProps) {
-  const { can, isAdmin } = useRole();
+  const { can, isAdmin, isSystemAdmin } = useRole();
 
   const visibleSections = navSections
     .map((section) => {
-      if (section.id === "admin" && !isAdmin) {
+      if (section.id === "admin" && !isSystemAdmin) {
         return null;
       }
 
@@ -90,6 +118,10 @@ export function NavMain({ activePage }: NavMainProps) {
       }
 
       const items = section.items.filter((item) => {
+        if (item.requiresSystemAdmin && !isSystemAdmin) {
+          return false;
+        }
+
         if (item.requiresAdmin && !isAdmin) {
           return false;
         }

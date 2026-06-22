@@ -51,6 +51,20 @@ class AdminUserListItem(BaseModel):
     created_at: datetime
 
 
+class AdminCreateUserRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=200)
+    email: EmailStr
+    role: str
+    password: str = Field(..., min_length=8, max_length=72)
+
+
+class AdminUpdateUserRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)
+    email: EmailStr | None = None
+    role: str | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=72)
+
+
 class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
