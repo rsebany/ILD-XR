@@ -22,6 +22,8 @@ backend-ai/weights/
 backend-api/static/meshes/
 backend-api/tmp/
 
+notebook/
+
 venv/
 
 # OS / editor junk
