@@ -12,9 +12,11 @@ __pycache__/
 # Environment / secrets (do NOT commit)
 *.env
 *.env.*
+!.env.example
 backend-api/.env
 frontend/.env
 frontend/.env.*
+!frontend/.env.example
 
 # Local data / outputs
 backend-api/data/
@@ -22,7 +24,16 @@ backend-ai/weights/
 backend-api/static/meshes/
 backend-api/tmp/
 
-notebook/
+# Model binaries (download from GitHub Releases; see weights/README.md)
+backend-api/weights/*.pth
+!backend-api/weights/README.md
+!backend-api/weights/.gitkeep
+
+# Notebooks: keep sources, ignore checkpoints / local secrets
+Experimentations/.ipynb_checkpoints/
+Experimentations/local.env
+Experimentations/Results/
+**/checkpoint/
 
 venv/
 
@@ -31,4 +42,3 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
-

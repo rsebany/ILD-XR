@@ -12,6 +12,7 @@ import {
   DEFAULT_MESH_CLASS_VISIBILITY,
   type MeshClassKey,
   type MeshClassVisibility,
+  type ZoneFilter,
 } from "@/components/features/viewer/xr/viewers/ThreeViewer";
 import { imagingContextFromSearchParams, imagingContextQuery } from "@/lib/imaging";
 import { buildSegmentationMetricGroups } from "@/lib/metrics/segmentation-metric-groups";
@@ -63,6 +64,7 @@ export function View3DReconstructionPanel() {
   const [showCtVolume, setShowCtVolume] = useState(false);
   const [flipVertical, setFlipVertical] = useState(false);
   const [lungRenderMode, setLungRenderMode] = useState<LungRenderMode>("semi");
+  const [zoneFilter, setZoneFilter] = useState<ZoneFilter>("all");
   const [volumeShape, setVolumeShape] = useState<DicomVolumeShape | null>(null);
   const [volumeShapeLoading, setVolumeShapeLoading] = useState(false);
 
@@ -340,6 +342,12 @@ export function View3DReconstructionPanel() {
               onToggle={toggleClass}
             />
           )}
+          {hasSegmentationMesh && showAiMesh && (
+            <ZoneFilterToggles
+              active={zoneFilter}
+              onSelect={setZoneFilter}
+            />
+          )}
 
           <div className="relative min-h-[280px] flex-1 overflow-hidden rounded-xl border border-border bg-[#020617] shadow-inner md:min-h-[300px]">
             <ThreeViewer
@@ -348,6 +356,7 @@ export function View3DReconstructionPanel() {
               showMesh={showMeshInViewer}
               visualPreset={meshVisualPreset}
               classVisibility={classVisibility}
+              zoneFilter={zoneFilter}
               dicomContext={dicomContext3d}
               dicomSpacingMm={dicomSpacingMm}
               dicomVoxelCount={dicomVoxelCount}
@@ -379,8 +388,10 @@ export function View3DReconstructionPanel() {
 }
 
 const CLASS_TOGGLE_META: Record<MeshClassKey, { label: string; swatch: string }> = {
-  ggo: { label: "GGO", swatch: "bg-[#66CC66]" },
-  reticulation: { label: "Reticulation", swatch: "bg-[#2B77FF]" },
+  emphysema: { label: "Emphysema", swatch: "bg-[#2B77FF]" },
+  fibrosis: { label: "Fibrosis", swatch: "bg-[#FF8C00]" },
+  ground_glass: { label: "Ground Glass", swatch: "bg-[#66CC66]" },
+  micronodules: { label: "Micronodules", swatch: "bg-[#DD44DD]" },
   consolidation: { label: "Consolidation", swatch: "bg-[#FFE640]" },
   lung_shell: { label: "Lung", swatch: "bg-rose-400" },
 };
@@ -392,7 +403,7 @@ function ClassVisibilityToggles({
   visibility: Required<MeshClassVisibility>;
   onToggle: (key: MeshClassKey) => void;
 }) {
-  const order: MeshClassKey[] = ["ggo", "reticulation", "consolidation", "lung_shell"];
+  const order: MeshClassKey[] = ["emphysema", "fibrosis", "ground_glass", "micronodules", "consolidation", "lung_shell"];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5">
       <span className="shrink-0 pr-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -414,6 +425,49 @@ function ClassVisibilityToggles({
             }`}
           >
             <span className={`h-2 w-2 shrink-0 rounded-full ${meta.swatch}`} />
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const ZONE_META: Record<ZoneFilter, { label: string; icon: string }> = {
+  all: { label: "All Zones", icon: "⬛" },
+  upper: { label: "Upper", icon: "🔼" },
+  middle: { label: "Middle", icon: "◾" },
+  lower: { label: "Lower", icon: "🔽" },
+};
+
+function ZoneFilterToggles({
+  active,
+  onSelect,
+}: {
+  active: ZoneFilter;
+  onSelect: (zone: ZoneFilter) => void;
+}) {
+  const zones: ZoneFilter[] = ["all", "upper", "middle", "lower"];
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5">
+      <span className="shrink-0 pr-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Zone
+      </span>
+      {zones.map((zone) => {
+        const meta = ZONE_META[zone];
+        const isActive = active === zone;
+        return (
+          <button
+            key={zone}
+            type="button"
+            onClick={() => onSelect(zone)}
+            aria-pressed={isActive}
+            className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              isActive
+                ? "border-cyan-600 bg-cyan-600/20 text-cyan-300"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:text-foreground"
+            }`}
+          >
             {meta.label}
           </button>
         );

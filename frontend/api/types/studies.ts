@@ -29,13 +29,17 @@ export interface SegmentationResult {
   lung_volume_ml?: number | null;
   /** Aggregate ILD burden = total_ild_volume_ml / lung_volume_ml (clamped to [0,1]). */
   ild_burden?: number | null;
-  /** Per-class lesion volumes (cm³ ≡ ml). Equation 1.5 in the report. */
-  ggo_volume_ml?: number | null;
-  reticulation_volume_ml?: number | null;
+  /** Per-class lesion volumes (cm³ ≡ ml). */
+  emphysema_volume_ml?: number | null;
+  fibrosis_volume_ml?: number | null;
+  ground_glass_volume_ml?: number | null;
+  micronodules_volume_ml?: number | null;
   consolidation_volume_ml?: number | null;
-  /** Per-class burdens = V_class / V_lung. Equation 1.6 in the report. */
-  ggo_burden?: number | null;
-  reticulation_burden?: number | null;
+  /** Per-class burdens = V_class / V_lung. */
+  emphysema_burden?: number | null;
+  fibrosis_burden?: number | null;
+  ground_glass_burden?: number | null;
+  micronodules_burden?: number | null;
   consolidation_burden?: number | null;
   zonal_distribution: ZonalDistribution;
   mesh_url: string;
@@ -73,11 +77,15 @@ export interface StudyListItem {
   /** Upper / Middle / Lower — % of ILD burden per craniocaudal zone. */
   zonal_distribution?: ZonalDistribution;
   lung_volume_ml?: number | null;
-  ggo_volume_ml?: number | null;
-  reticulation_volume_ml?: number | null;
+  emphysema_volume_ml?: number | null;
+  fibrosis_volume_ml?: number | null;
+  ground_glass_volume_ml?: number | null;
+  micronodules_volume_ml?: number | null;
   consolidation_volume_ml?: number | null;
-  ggo_burden?: number | null;
-  reticulation_burden?: number | null;
+  emphysema_burden?: number | null;
+  fibrosis_burden?: number | null;
+  ground_glass_burden?: number | null;
+  micronodules_burden?: number | null;
   consolidation_burden?: number | null;
 }
 
@@ -91,11 +99,15 @@ export interface StudyMetrics {
   ild_burden?: number | null;
   zonal_distribution: Record<string, number>;
   lung_volume_ml?: number | null;
-  ggo_volume_ml?: number | null;
-  reticulation_volume_ml?: number | null;
+  emphysema_volume_ml?: number | null;
+  fibrosis_volume_ml?: number | null;
+  ground_glass_volume_ml?: number | null;
+  micronodules_volume_ml?: number | null;
   consolidation_volume_ml?: number | null;
-  ggo_burden?: number | null;
-  reticulation_burden?: number | null;
+  emphysema_burden?: number | null;
+  fibrosis_burden?: number | null;
+  ground_glass_burden?: number | null;
+  micronodules_burden?: number | null;
   consolidation_burden?: number | null;
 }
 

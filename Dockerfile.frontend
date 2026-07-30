@@ -1,0 +1,21 @@
+# Frontend Dockerfile (Next.js 16)
+FROM node:20-slim AS base
+
+WORKDIR /app
+
+# Install dependencies
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --prefer-offline
+
+# Copy source
+COPY frontend/ .
+
+# Build for production
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Run production server
+CMD ["npm", "start"]

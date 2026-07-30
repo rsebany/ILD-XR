@@ -20,7 +20,7 @@ from services.sync.segmentation import LABEL_CONTRACT, load_manifest
 # Constants
 # ---------------------------------------------------------------------------
 
-_REQUIRED_LABELS = frozenset({"background", "ggo", "reticulation", "consolidation"})
+_REQUIRED_LABELS = frozenset({"background", "emphysema", "fibrosis", "ground_glass", "micronodules", "consolidation"})
 _SPACING_TOLERANCE_MM = 0.2
 _SUPPORTED_ORIENTATION = "zyx"
 

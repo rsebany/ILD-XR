@@ -13,7 +13,12 @@ if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
 from common.bootstrap import ensure_backend_api_on_path
-from common.paths import DEFAULT_WEIGHTS_PATH
+from common.paths import (
+    DEFAULT_ENCODER_WEIGHTS_PATH,
+    DEFAULT_MED3D_WEIGHTS_PATH,
+    DEFAULT_SOFTMAX_WEIGHTS_PATH,
+    DEFAULT_WEIGHTS_PATH,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,7 +127,13 @@ def main() -> int:
     print(f"[INFO] DICOM dir: {dicom_dir}")
     print(f"[INFO] Weights:   {weights_path}")
 
-    mask, spacing, _volume_hu, lung_mask = process_dicom_zip_dir(dicom_dir, weights_path)
+    mask, spacing, _volume_hu, lung_mask = process_dicom_zip_dir(
+        dicom_dir,
+        weights_path,
+        encoder_weights=DEFAULT_ENCODER_WEIGHTS_PATH,
+        softmax_weights=DEFAULT_SOFTMAX_WEIGHTS_PATH,
+        med3d_weights=DEFAULT_MED3D_WEIGHTS_PATH,
+    )
     volume_ml = compute_ild_volume_ml(mask, spacing)
     class_metrics = compute_class_metrics(mask, spacing, lung_mask=lung_mask)
     nonzero_voxels = int((mask > 0).sum())
@@ -134,10 +145,14 @@ def main() -> int:
     print(f"[INFO] Lung ml:    {class_metrics['lung_volume_ml']:.4f}")
     print(
         "[INFO] Per-class:  "
-        f"GGO={class_metrics['ggo_volume_ml']:.4f} ml "
-        f"({class_metrics['ggo_burden'] * 100:.2f}%), "
-        f"Reticulation={class_metrics['reticulation_volume_ml']:.4f} ml "
-        f"({class_metrics['reticulation_burden'] * 100:.2f}%), "
+        f"Emphysema={class_metrics['emphysema_volume_ml']:.4f} ml "
+        f"({class_metrics['emphysema_burden'] * 100:.2f}%), "
+        f"Fibrosis={class_metrics['fibrosis_volume_ml']:.4f} ml "
+        f"({class_metrics['fibrosis_burden'] * 100:.2f}%), "
+        f"GroundGlass={class_metrics['ground_glass_volume_ml']:.4f} ml "
+        f"({class_metrics['ground_glass_burden'] * 100:.2f}%), "
+        f"Micronodules={class_metrics['micronodules_volume_ml']:.4f} ml "
+        f"({class_metrics['micronodules_burden'] * 100:.2f}%), "
         f"Consolidation={class_metrics['consolidation_volume_ml']:.4f} ml "
         f"({class_metrics['consolidation_burden'] * 100:.2f}%)"
     )

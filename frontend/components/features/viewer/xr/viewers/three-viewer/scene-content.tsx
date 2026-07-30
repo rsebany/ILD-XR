@@ -4,7 +4,7 @@ import React, { Suspense } from "react";
 import type * as THREE from "three";
 import { DicomAxialStack3D } from "@/components/features/viewer/view3d/DicomAxialStack3D";
 import { GltfMeshNoCamera, ProceduralLung } from "../mesh";
-import type { MeshClassVisibility, MeshVisualPreset, ThreeViewerProps } from "../three-viewer.types";
+import type { MeshClassVisibility, MeshVisualPreset, ThreeViewerProps, ZoneFilter } from "../three-viewer.types";
 
 type SceneContentProps = Pick<
   ThreeViewerProps,
@@ -18,6 +18,7 @@ type SceneContentProps = Pick<
   | "dicomVoxelCount"
   | "dicomSpacingMm"
   | "usePlaceholder"
+  | "zoneFilter"
 > & {
   sceneGroupRef: React.RefObject<THREE.Group | null>;
   hasDualMeshes: boolean;
@@ -48,6 +49,7 @@ export function ThreeViewerScene({
   usePlaceholder = false,
   meshMaterialPreset,
   resolvedClassVisibility,
+  zoneFilter = "all",
 }: SceneContentProps) {
   return (
     <group ref={sceneGroupRef}>
@@ -74,6 +76,7 @@ export function ThreeViewerScene({
                     meshUrl={meshUrl}
                     visualPreset={meshMaterialPreset}
                     classVisibility={resolvedClassVisibility}
+                    zoneFilter={zoneFilter}
                   />
                 </Suspense>
               </group>
@@ -83,6 +86,7 @@ export function ThreeViewerScene({
                     meshUrl={compareMeshUrl!}
                     visualPreset={meshMaterialPreset}
                     classVisibility={resolvedClassVisibility}
+                    zoneFilter={zoneFilter}
                   />
                 </Suspense>
               </group>
@@ -97,6 +101,7 @@ export function ThreeViewerScene({
                     meshUrl={meshUrl}
                     visualPreset={meshMaterialPreset}
                     classVisibility={resolvedClassVisibility}
+                    zoneFilter={zoneFilter}
                   />
                 )}
               </Suspense>

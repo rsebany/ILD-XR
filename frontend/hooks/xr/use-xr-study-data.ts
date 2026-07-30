@@ -45,7 +45,8 @@ export function useXrStudyData(studyId: string | null, fallbackMesh: string | nu
           setDicomSliceCount(depth);
           setCurrentDicomSlice(depth > 0 ? Math.floor(depth / 2) : 0);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn("XR DICOM volume shape failed:", err);
           setDicomSliceCount(0);
           setCurrentDicomSlice(0);
         });
@@ -99,26 +100,42 @@ export function useXrStudyData(studyId: string | null, fallbackMesh: string | nu
                   typeof event.metrics?.lung_volume_ml === "number"
                     ? event.metrics.lung_volume_ml
                     : prev.lung_volume_ml,
-                ggo_volume_ml:
-                  typeof event.metrics?.ggo_volume_ml === "number"
-                    ? event.metrics.ggo_volume_ml
-                    : prev.ggo_volume_ml,
-                reticulation_volume_ml:
-                  typeof event.metrics?.reticulation_volume_ml === "number"
-                    ? event.metrics.reticulation_volume_ml
-                    : prev.reticulation_volume_ml,
+                emphysema_volume_ml:
+                  typeof event.metrics?.emphysema_volume_ml === "number"
+                    ? event.metrics.emphysema_volume_ml
+                    : prev.emphysema_volume_ml,
+                fibrosis_volume_ml:
+                  typeof event.metrics?.fibrosis_volume_ml === "number"
+                    ? event.metrics.fibrosis_volume_ml
+                    : prev.fibrosis_volume_ml,
+                ground_glass_volume_ml:
+                  typeof event.metrics?.ground_glass_volume_ml === "number"
+                    ? event.metrics.ground_glass_volume_ml
+                    : prev.ground_glass_volume_ml,
+                micronodules_volume_ml:
+                  typeof event.metrics?.micronodules_volume_ml === "number"
+                    ? event.metrics.micronodules_volume_ml
+                    : prev.micronodules_volume_ml,
                 consolidation_volume_ml:
                   typeof event.metrics?.consolidation_volume_ml === "number"
                     ? event.metrics.consolidation_volume_ml
                     : prev.consolidation_volume_ml,
-                ggo_burden:
-                  typeof event.metrics?.ggo_burden === "number"
-                    ? event.metrics.ggo_burden
-                    : prev.ggo_burden,
-                reticulation_burden:
-                  typeof event.metrics?.reticulation_burden === "number"
-                    ? event.metrics.reticulation_burden
-                    : prev.reticulation_burden,
+                emphysema_burden:
+                  typeof event.metrics?.emphysema_burden === "number"
+                    ? event.metrics.emphysema_burden
+                    : prev.emphysema_burden,
+                fibrosis_burden:
+                  typeof event.metrics?.fibrosis_burden === "number"
+                    ? event.metrics.fibrosis_burden
+                    : prev.fibrosis_burden,
+                ground_glass_burden:
+                  typeof event.metrics?.ground_glass_burden === "number"
+                    ? event.metrics.ground_glass_burden
+                    : prev.ground_glass_burden,
+                micronodules_burden:
+                  typeof event.metrics?.micronodules_burden === "number"
+                    ? event.metrics.micronodules_burden
+                    : prev.micronodules_burden,
                 consolidation_burden:
                   typeof event.metrics?.consolidation_burden === "number"
                     ? event.metrics.consolidation_burden

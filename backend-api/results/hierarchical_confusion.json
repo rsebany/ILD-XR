@@ -1,0 +1,42 @@
+{
+  "binary": {
+    "matrix": [
+      [
+        1880,
+        2620
+      ],
+      [
+        466,
+        2969
+      ]
+    ],
+    "classes": [
+      "Normal",
+      "ILD"
+    ]
+  },
+  "hierarchical": {
+    "matrix": [
+      [
+        1450,
+        1500,
+        1550
+      ],
+      [
+        472,
+        360,
+        367
+      ],
+      [
+        807,
+        604,
+        825
+      ]
+    ],
+    "classes": [
+      "Normal",
+      "Fibrotic",
+      "NonFibrotic"
+    ]
+  }
+}

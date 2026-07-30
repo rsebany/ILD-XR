@@ -44,17 +44,19 @@ export function ImmersiveSceneControls({
       <ImmersiveButton label="All" position={[-0.24, 0.26, 0]} color="#0284c7" onSelect={onPresetAll} />
       <ImmersiveButton label="Lesions" position={[0, 0.26, 0]} color="#7c3aed" onSelect={onPresetLesions} />
       <ImmersiveButton label="Shell" position={[0.24, 0.26, 0]} color="#334155" onSelect={onPresetShell} />
-      <ImmersiveToggleButton label="GGO" active={classVisibility.ggo} position={[-0.39, 0.04, 0]} activeColor="#059669" onSelect={() => onToggleMeshClass("ggo")} />
-      <ImmersiveToggleButton label="Retic" active={classVisibility.reticulation} position={[-0.13, 0.04, 0]} activeColor="#7c3aed" onSelect={() => onToggleMeshClass("reticulation")} />
-      <ImmersiveToggleButton label="Cons" active={classVisibility.consolidation} position={[0.13, 0.04, 0]} activeColor="#d97706" onSelect={() => onToggleMeshClass("consolidation")} />
-      <ImmersiveToggleButton label="Shell" active={classVisibility.lung_shell} position={[0.39, 0.04, 0]} activeColor="#334155" onSelect={() => onToggleMeshClass("lung_shell")} />
-      <ImmersiveToggleButton label="Real" active={realLungEnabled} position={[0, -0.08, 0]} activeColor="#d97706" onSelect={onToggleRealLung} />
+      <ImmersiveToggleButton label="Emph" active={classVisibility.emphysema} position={[-0.5, 0.04, 0]} activeColor="#2b77ff" onSelect={() => onToggleMeshClass("emphysema")} />
+      <ImmersiveToggleButton label="Fibro" active={classVisibility.fibrosis} position={[-0.3, 0.04, 0]} activeColor="#ff8c00" onSelect={() => onToggleMeshClass("fibrosis")} />
+      <ImmersiveToggleButton label="GG" active={classVisibility.ground_glass} position={[-0.1, 0.04, 0]} activeColor="#059669" onSelect={() => onToggleMeshClass("ground_glass")} />
+      <ImmersiveToggleButton label="Micro" active={classVisibility.micronodules} position={[0.1, 0.04, 0]} activeColor="#dd44dd" onSelect={() => onToggleMeshClass("micronodules")} />
+      <ImmersiveToggleButton label="Cons" active={classVisibility.consolidation} position={[0.3, 0.04, 0]} activeColor="#d97706" onSelect={() => onToggleMeshClass("consolidation")} />
+      <ImmersiveToggleButton label="Shell" active={classVisibility.lung_shell} position={[0.5, 0.04, 0]} activeColor="#334155" onSelect={() => onToggleMeshClass("lung_shell")} />
+      <ImmersiveToggleButton label="Real" active={realLungEnabled} position={[0, -0.16, 0]} activeColor="#d97706" onSelect={onToggleRealLung} />
       {isArImmersive ? (
         <>
-          <ImmersiveButton label="Center" position={[0, -0.22, 0]} color="#0369a1" width={0.28} onSelect={onCenterAr} />
-          <ImmersiveToggleButton label="Perf" active={arQuality === "performance"} position={[-0.28, -0.4, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("performance")} />
-          <ImmersiveToggleButton label="Bal" active={arQuality === "balanced"} position={[0, -0.4, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("balanced")} />
-          <ImmersiveToggleButton label="Qual" active={arQuality === "quality"} position={[0.28, -0.4, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("quality")} />
+          <ImmersiveButton label="Center" position={[0, -0.28, 0]} color="#0369a1" width={0.28} onSelect={onCenterAr} />
+          <ImmersiveToggleButton label="Perf" active={arQuality === "performance"} position={[-0.28, -0.46, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("performance")} />
+          <ImmersiveToggleButton label="Bal" active={arQuality === "balanced"} position={[0, -0.46, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("balanced")} />
+          <ImmersiveToggleButton label="Qual" active={arQuality === "quality"} position={[0.28, -0.46, 0]} activeColor="#0891b2" onSelect={() => onArQualityChange("quality")} />
         </>
       ) : null}
     </group>

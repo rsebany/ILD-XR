@@ -126,12 +126,16 @@ class SegmentationResultORM(Base):
     ild_fraction: Mapped[float] = mapped_column(Float, default=0.0)
     lung_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    ggo_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    reticulation_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    emphysema_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fibrosis_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ground_glass_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    micronodules_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     consolidation_volume_ml: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    ggo_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    reticulation_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    emphysema_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fibrosis_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ground_glass_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    micronodules_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     consolidation_burden: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     dice_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

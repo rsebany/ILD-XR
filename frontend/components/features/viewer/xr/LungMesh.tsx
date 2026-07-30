@@ -3,17 +3,13 @@
 import React from "react";
 import * as THREE from "three";
 import { LungMeshCore, LungMeshErrorBoundary } from "./mesh";
+import type { MeshClassVisibility } from "@/components/xr/experience/types";
 
 type LungMeshProps = {
   meshUrl: string;
   usePlaceholder?: boolean;
   realLungEnabled?: boolean;
-  classVisibility?: {
-    ggo: boolean;
-    reticulation: boolean;
-    consolidation: boolean;
-    lung_shell: boolean;
-  };
+  classVisibility?: MeshClassVisibility;
   onLoadError?: (error: Error) => void;
   /** Parent-driven drag in world space (XR lab); omit for default local drag. */
   onWorldDragDelta?: (delta: THREE.Vector3) => void;

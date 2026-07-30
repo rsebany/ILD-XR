@@ -15,16 +15,20 @@ from services.ai.constants import CLASS_LABELS
 from services.ai.geometry import lung_mask_from_hu
 
 MESH_NODE_NAMES: Dict[str, str] = {
-    "ggo": "ggo",
-    "reticulation": "reticulation",
+    "emphysema": "emphysema",
+    "fibrosis": "fibrosis",
+    "ground_glass": "ground_glass",
+    "micronodules": "micronodules",
     "consolidation": "consolidation",
     "lung_shell": "lung_shell",
 }
 _MESH_PALETTE: Dict[str, np.ndarray] = {
-    "ggo": np.array([0, 200, 170, 255], dtype=np.uint8),
-    "reticulation": np.array([142, 92, 255, 255], dtype=np.uint8),
-    "consolidation": np.array([255, 143, 77, 255], dtype=np.uint8),
-    "lung_shell": np.array([196, 136, 120, 255], dtype=np.uint8),
+    "emphysema": np.array([0, 200, 255, 255], dtype=np.uint8),       # cyan
+    "fibrosis": np.array([255, 165, 0, 255], dtype=np.uint8),        # orange
+    "ground_glass": np.array([0, 200, 170, 255], dtype=np.uint8),    # green
+    "micronodules": np.array([200, 0, 200, 255], dtype=np.uint8),    # magenta
+    "consolidation": np.array([255, 143, 77, 255], dtype=np.uint8),  # yellow-orange
+    "lung_shell": np.array([180, 200, 220, 120], dtype=np.uint8),    # semi-transparent light blue
 }
 
 _SHELL_LESION_DILATE_ITERS = 2
@@ -200,24 +204,23 @@ def generate_mesh_glb(
                 )
                 contains_geometry = True
 
-    if has_any_class:
-        lung_bool = _resolve_lung_bool(mask, lung_mask, volume_hu)
-        if lung_bool is not None:
-            shell_volume = outer_lung_shell_volume(lung_bool, lesion_fg)
-            shell = _build_class_submesh(
-                shell_volume,
-                spacing_arr,
-                _MESH_PALETTE["lung_shell"],
-                smooth=True,
-                morph_mask=False,
+    # Always generate full lung volume mesh for 3D anatomy visualization
+    lung_bool = _resolve_lung_bool(mask, lung_mask, volume_hu)
+    if lung_bool is not None:
+        # Full lung volume (semi-transparent shell for anatomy context)
+        lung_sub = _build_class_submesh(
+            lung_bool.astype(np.float32),
+            spacing_arr,
+            _MESH_PALETTE["lung_shell"],
+            smooth=True,
+        )
+        if lung_sub is not None:
+            scene.add_geometry(
+                lung_sub,
+                geom_name=MESH_NODE_NAMES["lung_shell"],
+                node_name=MESH_NODE_NAMES["lung_shell"],
             )
-            if shell is not None:
-                scene.add_geometry(
-                    shell,
-                    geom_name=MESH_NODE_NAMES["lung_shell"],
-                    node_name=MESH_NODE_NAMES["lung_shell"],
-                )
-                contains_geometry = True
+            contains_geometry = True
 
     if not contains_geometry:
         return ""

@@ -1,0 +1,39 @@
+# Backend API + AI Dockerfile
+FROM python:3.11-slim AS base
+
+# System dependencies for scikit-image, OpenCV, scipy
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender1 \
+    gcc g++ libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend-ai (model definitions, preprocessing)
+COPY backend-ai/ /app/backend-ai/
+
+# Copy backend-api (routes, services, models, auth)
+COPY backend-api/ /app/backend-api/
+
+# Copy shared config
+COPY shared/ /app/shared/
+
+# Create data directories
+RUN mkdir -p /app/backend-api/data/dicom \
+    /app/backend-api/data/masks \
+    /app/backend-api/data/segmentation_revisions \
+    /app/backend-api/static/meshes \
+    /app/backend-api/weights
+
+# Set PYTHONPATH so backend-ai is importable
+ENV PYTHONPATH="/app/backend-api:/app/backend-ai:/app"
+
+# Expose API port
+EXPOSE 8000
+
+# Run the API server
+CMD ["python", "backend-api/main.py"]

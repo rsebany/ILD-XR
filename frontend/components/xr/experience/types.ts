@@ -1,12 +1,14 @@
 export type XrExperienceMode = "vr" | "ar";
 export type ArQualityPreset = "performance" | "balanced" | "quality";
 
-export type MeshClassKey = "ggo" | "reticulation" | "consolidation" | "lung_shell";
+export type MeshClassKey = "emphysema" | "fibrosis" | "ground_glass" | "micronodules" | "consolidation" | "lung_shell";
 export type MeshClassVisibility = Record<MeshClassKey, boolean>;
 
 export const DEFAULT_MESH_CLASS_VISIBILITY: MeshClassVisibility = {
-  ggo: true,
-  reticulation: true,
+  emphysema: true,
+  fibrosis: true,
+  ground_glass: true,
+  micronodules: true,
   consolidation: true,
   lung_shell: true,
 };

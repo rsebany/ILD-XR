@@ -9,8 +9,11 @@ type SegmentationClassLegendProps = {
 };
 
 const CLASS_ITEMS = [
-  { label: "GGO", color: "bg-[#66CC66]" },
-  { label: "Reticulation", color: "bg-[#2B77FF]" },
+  { label: "Lung Boundary", color: "bg-[#00C8C8]" },
+  { label: "Emphysema", color: "bg-[#2B77FF]" },
+  { label: "Fibrosis", color: "bg-[#FF8C00]" },
+  { label: "Ground Glass", color: "bg-[#66CC66]" },
+  { label: "Micronodules", color: "bg-[#DD44DD]" },
   { label: "Consolidation", color: "bg-[#FFE640]" },
 ] as const;
 

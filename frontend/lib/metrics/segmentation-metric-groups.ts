@@ -46,13 +46,10 @@ export function buildSegmentationMetricGroups(
     burden?: number | null;
     color: string;
   }> = [
-    { name: "GGO", ml: metrics.ggo_volume_ml, burden: metrics.ggo_burden, color: "bg-emerald-500" },
-    {
-      name: "Reticulation",
-      ml: metrics.reticulation_volume_ml,
-      burden: metrics.reticulation_burden,
-      color: "bg-sky-500",
-    },
+    { name: "Emphysema", ml: metrics.emphysema_volume_ml, burden: metrics.emphysema_burden, color: "bg-blue-500" },
+    { name: "Fibrosis", ml: metrics.fibrosis_volume_ml, burden: metrics.fibrosis_burden, color: "bg-orange-500" },
+    { name: "Ground Glass", ml: metrics.ground_glass_volume_ml, burden: metrics.ground_glass_burden, color: "bg-emerald-500" },
+    { name: "Micronodules", ml: metrics.micronodules_volume_ml, burden: metrics.micronodules_burden, color: "bg-fuchsia-500" },
     {
       name: "Consolidation",
       ml: metrics.consolidation_volume_ml,
@@ -64,12 +61,11 @@ export function buildSegmentationMetricGroups(
   const lungMl = metrics.lung_volume_ml;
   const patterns: MetricProgressItem[] = [];
   for (const c of perClass) {
-    if (c.ml == null && c.burden == null) continue;
-    let volumeMl: number | null = c.ml ?? null;
+    let volumeMl: number | null = c.ml ?? 0;
     if (volumeMl == null && lungMl != null && lungMl > 0 && c.burden != null) {
       volumeMl = c.burden * lungMl;
     }
-    if (volumeMl == null && c.burden === 0) volumeMl = 0;
+    if (volumeMl == null) volumeMl = 0;
 
     const burdenFrac =
       c.burden ??

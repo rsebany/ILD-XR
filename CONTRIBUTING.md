@@ -27,18 +27,21 @@ platform for interstitial lung disease (ILD) on chest CT.
 1. Follow [Quick start](README.md#quick-start) in the README.
 2. Use **Python 3.11+**, **Node.js 20+**, and **PostgreSQL**.
 3. Run backend and frontend locally before submitting changes.
+4. For training notebooks under `Experimentations/`, set `ILD_MEDGIFT_ROOT`,
+   `ILD_LUNG_MASK_BASE`, and `ILD_MODELS_DIR` (never commit patient data or
+   machine-local path files).
 
 ## Pull request guidelines
 
 1. **Scope** — One logical change per PR when practical.
 2. **Style** — Match existing patterns in the touched area (`frontend/`,
-   `backend-api/`, `backend-ai/`).
+   `backend-api/`, `backend-ai/`, `Experimentations/`).
 3. **Tests** — Add or update tests when behavior changes (`backend-api/tests/`
    where applicable).
 4. **Documentation** — Update the README or inline docs if setup, APIs, or
    user-facing behavior changes.
-5. **Secrets** — Never commit `.env`, credentials, model weights, or patient
-   data.
+5. **Secrets** — Never commit `.env`, credentials, model weights (`.pth`), or
+   patient data. Keep `venv/` local.
 
 ## Commit messages
 

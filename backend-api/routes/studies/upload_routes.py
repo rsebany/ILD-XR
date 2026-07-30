@@ -1,4 +1,4 @@
-"""Study upload and expert-mask comparison endpoints."""
+"""Study upload endpoints."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from auth import TokenPayload, get_current_user, get_owned_study_or_404
 from models.db import get_session
-from schemas import ExpertMaskCompareResponse, UploadStudyResponse
+from schemas import UploadStudyResponse
 from services.studies.analysis_state import MASK_STORAGE
-from services.studies.expert_mask_compare import run_expert_mask_compare_from_upload
+# from services.studies.expert_mask_compare import run_expert_mask_compare_from_upload
 from services.studies.upload import upload_study_impl
 
 from .common import (
@@ -20,6 +20,14 @@ from .common import (
     STATIC_MESH_DIR,
     WEIGHTS_PATH,
     _legacy_patient_json,
+)
+
+from services.core.paths import (
+    ENCODER_WEIGHTS,
+    HIERARCHICAL_WEIGHTS,
+    MED3D_WEIGHTS,
+    SOFTMAX_WEIGHTS,
+    USE_HIERARCHICAL,
 )
 
 # ---------------------------------------------------------------------------
@@ -66,46 +74,50 @@ def _build_study_description(
 
 
 # ---------------------------------------------------------------------------
+# Expert-mask-compare endpoint — DISABLED (label normalization issues)
+# ---------------------------------------------------------------------------
+#
+# @router.post(
+#     "/upload/expert-mask-compare",
+#     response_model=ExpertMaskCompareResponse,
+#     name="studies_upload_expert_mask_compare",
+#     summary="Compare expert mask DICOMs to stored AI prediction",
+#     description=(
+#         "Upload a ZIP or multiple DICOM slices of an expert label map (0-3 per voxel). "
+#         "Volume must match the stored prediction mask shape for ``study_id``."
+#     ),
+# )
+# async def compare_expert_mask_to_prediction(
+#     study_id: Annotated[str, Form(description="Existing study id, e.g. ST-abc12345")],
+#     file: UploadFile | None = File(
+#         default=None,
+#         description="ZIP of expert mask DICOMs (omit if sending `files`)",
+#     ),
+#     files: list[UploadFile] | None = File(
+#         default=None,
+#         description="Multiple expert mask .dcm/.dicom files",
+#     ),
+#     current_user: TokenPayload = Depends(get_current_user),
+# ) -> ExpertMaskCompareResponse:
+#     with get_session() as session:
+#         get_owned_study_or_404(session, study_id, current_user)
+#
+#     try:
+#         payload = await run_expert_mask_compare_from_upload(
+#             study_id=study_id,
+#             mask_storage=MASK_STORAGE,
+#             base_tmp=BASE_DIR,
+#             file=file,
+#             files=files,
+#         )
+#         return ExpertMaskCompareResponse.model_validate(payload)
+#     finally:
+#         await _close_upload_parts(file, files, log_label="expert-mask-compare")
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
-
-
-@router.post(
-    "/upload/expert-mask-compare",
-    response_model=ExpertMaskCompareResponse,
-    name="studies_upload_expert_mask_compare",
-    summary="Compare expert mask DICOMs to stored AI prediction",
-    description=(
-        "Upload a ZIP or multiple DICOM slices of an expert label map (0–3 per voxel). "
-        "Volume must match the stored prediction mask shape for ``study_id``."
-    ),
-)
-async def compare_expert_mask_to_prediction(
-    study_id: Annotated[str, Form(description="Existing study id, e.g. ST-abc12345")],
-    file: UploadFile | None = File(
-        default=None,
-        description="ZIP of expert mask DICOMs (omit if sending `files`)",
-    ),
-    files: list[UploadFile] | None = File(
-        default=None,
-        description="Multiple expert mask .dcm/.dicom files",
-    ),
-    current_user: TokenPayload = Depends(get_current_user),
-) -> ExpertMaskCompareResponse:
-    with get_session() as session:
-        get_owned_study_or_404(session, study_id, current_user)
-
-    try:
-        payload = await run_expert_mask_compare_from_upload(
-            study_id=study_id,
-            mask_storage=MASK_STORAGE,
-            base_tmp=BASE_DIR,
-            file=file,
-            files=files,
-        )
-        return ExpertMaskCompareResponse.model_validate(payload)
-    finally:
-        await _close_upload_parts(file, files, log_label="expert-mask-compare")
 
 
 @router.post(
@@ -145,6 +157,10 @@ async def upload_study(
             base_dir=BASE_DIR,
             static_mesh_dir=STATIC_MESH_DIR,
             weights_path=WEIGHTS_PATH,
+            encoder_weights=ENCODER_WEIGHTS,
+            softmax_weights=SOFTMAX_WEIGHTS,
+            med3d_weights=MED3D_WEIGHTS,
+            hierarchical_ckpt=HIERARCHICAL_WEIGHTS if USE_HIERARCHICAL else None,
             mask_storage=MASK_STORAGE,
             dicom_storage=DICOM_STORAGE,
             log_prefix="/studies/upload",

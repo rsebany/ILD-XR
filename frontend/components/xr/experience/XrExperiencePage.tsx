@@ -26,20 +26,23 @@ export function XrExperiencePage({ mode }: Props) {
   const [focusMeshNonce, setFocusMeshNonce] = useState(0);
   const [focusBalancedNonce, setFocusBalancedNonce] = useState(0);
   const [meshScale, setMeshScale] = useState(XR_SIDE_BY_SIDE.defaultMeshScale);
-  const [arQuality, setArQuality] = useState<ArQualityPreset>("performance");
+  const [arQuality, setArQuality] = useState<ArQualityPreset>("balanced");
   const [vrSpawnNonce, setVrSpawnNonce] = useState(0);
 
   const study = useXrStudyData(studyId, fallbackMesh);
   const dicom = useDicomPlayback(study.dicomSliceCount, study.setCurrentDicomSlice);
   const presets = useMeshClassPresets();
   const isMobileAr = useMemo(() => (mode === "ar" ? isMobileArDevice() : false), [mode]);
-  const arPerformanceMode = mode === "ar" && (isMobileAr || arQuality === "performance");
+  // Perf strips DICOM/hospital; GPU throttle can stay mild on mobile even when Bal shows 2D.
+  const hideHeavyArAssets = mode === "ar" && arQuality === "performance";
+  const arPerformanceMode =
+    mode === "ar" && (arQuality === "performance" || (isMobileAr && arQuality !== "quality"));
 
   const session = useXrSessionStore(mode, {
     studyId,
     meshUrl: study.effectiveMeshUrl,
     dicomSlice: study.currentDicomSlice,
-    arPerformanceMode,
+    skipHeavyAssets: hideHeavyArAssets,
   });
   const toggleFullscreen = useFullscreen(containerRef);
   const immersive = useImmersiveEntry({
@@ -118,7 +121,6 @@ export function XrExperiencePage({ mode }: Props) {
           toggleMeshClass: presets.toggleMeshClass,
           setMeshScale,
           arQuality,
-          arPerformanceMode,
           setArQuality,
           syncConnected: study.syncConnected,
           isDicomPlaying: dicom.isDicomPlaying,

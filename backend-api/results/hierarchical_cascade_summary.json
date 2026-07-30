@@ -1,0 +1,20 @@
+{
+  "protocol": "CT_lungmask_sliding_window_patch_softmax_3D_map_then_classify",
+  "checkpoint": "D:\\Romualdo\\Training\\Results\\models\\phase2_hierarchical_fold_R0F1.pth",
+  "stride": [
+    4,
+    8,
+    8
+  ],
+  "patch_size": [
+    16,
+    64,
+    64
+  ],
+  "n_patients": 113,
+  "decision_rule": "path_frac>=0.005 OR mean_ild_prob>=0.45",
+  "patient_binary_f1": 0.9383886255924171,
+  "patient_binary_acc": 0.8849557522123894,
+  "patient_hier_macro_f1": 0.25191815856777494,
+  "patient_path_macro_f1_all": 0.07775628626692457
+}

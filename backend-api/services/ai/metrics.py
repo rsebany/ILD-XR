@@ -136,7 +136,7 @@ def _dice_binary_mask(a: np.ndarray, b: np.ndarray) -> float:
     return 2.0 * inter / float(sa + sb)
 
 
-def mask_label_histogram_u8(vol: np.ndarray, *, max_label: int = 3) -> Dict[str, int]:
+def mask_label_histogram_u8(vol: np.ndarray, *, max_label: int = 5) -> Dict[str, int]:
     """Count voxels per integer label 0..max_label inclusive."""
     v = np.asarray(vol, dtype=np.uint8).ravel()
     return {str(i): int(np.count_nonzero(v == i)) for i in range(max_label + 1)}

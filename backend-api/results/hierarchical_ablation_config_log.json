@@ -1,0 +1,32 @@
+{
+  "note": "Retrain ablations are implemented in Experimentations/03_hierarchical_ablation.ipynb. This cell only logs the main CV config / summaries for traceability.",
+  "notebook": "03_hierarchical_ablation.ipynb",
+  "full_model": {
+    "f1_mean": 0.6819452120577367,
+    "f1_std": 0.13997514181805978,
+    "auc_mean": 0.6462474391889663,
+    "auc_std": 0.2233566254883677,
+    "accuracy_mean": 0.6146291016454808,
+    "mcc_mean": 0.3081207932922884
+  },
+  "hierarchical": {
+    "f1_macro_mean": 0.15403191898015872,
+    "f1_macro_std": 0.0752022566328805,
+    "f1_weighted_mean": 0.1900097991969982
+  },
+  "pathology": {
+    "f1_macro_mean": 0.09404691522859761,
+    "f1_macro_std": 0.0614115618535895,
+    "f1_weighted_mean": 0.10361392690711292
+  },
+  "factors": {
+    "mixup": 0.2,
+    "label_smoothing": 0.1,
+    "unfreeze_blocks": [
+      "layer3",
+      "layer4"
+    ],
+    "n_repeats": 3,
+    "n_folds": 5
+  }
+}

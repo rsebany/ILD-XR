@@ -30,7 +30,6 @@ type SceneProps = {
   toggleMeshClass: (key: keyof MeshClassVisibility) => void;
   setMeshScale: Dispatch<SetStateAction<number>>;
   arQuality: ArQualityPreset;
-  arPerformanceMode: boolean;
   setArQuality: (q: ArQualityPreset) => void;
   syncConnected: boolean;
   isDicomPlaying: boolean;
@@ -101,7 +100,6 @@ export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, 
             onToggleMeshClass={toggleMeshClass}
             sceneVariant={mode}
             arQuality={arQuality}
-            arPerformanceMode={arPerformanceMode}
             onArQualityChange={setArQuality}
             syncConnected={syncConnected}
             isDicomPlaying={isDicomPlaying}

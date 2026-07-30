@@ -26,7 +26,7 @@ export function XRSceneContent(props: XRSceneContentProps) {
     meshUrl, useMeshPlaceholder, realLungEnabled = false, onToggleRealLung, onResetView, studyId, dicomSliceCount,
     currentDicomSlice, onDicomSliceChange, focusStackNonce, focusMeshNonce, focusBalancedNonce,
     meshScale, classVisibility, onZoomIn, onZoomOut, onPresetAll, onPresetLesions, onPresetShell,
-    onToggleMeshClass, sceneVariant = "vr", arQuality = "performance", arPerformanceMode = false,
+    onToggleMeshClass, sceneVariant = "vr", arQuality = "balanced",
     onArQualityChange, isDicomPlaying, onToggleDicomPlay, onPauseDicomPlay, vrSpawnNonce = 0,
   } = props;
 
@@ -38,7 +38,8 @@ export function XRSceneContent(props: XRSceneContentProps) {
   const isArImmersive = isPresenting && sceneVariant === "ar";
   const useHtmlControls = !isPresenting;
   const showImmersive3DControls = isPresenting;
-  const hideHeavyArAssets = sceneVariant === "ar" && arPerformanceMode && isPresenting;
+  // Quality preset alone gates DICOM/hospital — not mobile GPU throttle.
+  const hideHeavyArAssets = sceneVariant === "ar" && arQuality === "performance" && isPresenting;
 
   const meshState = useMeshSceneState({ isPresenting, isArImmersive, sceneVariant, vrSpawnNonce });
   const { panels, createPanelTexture, addPanel, clearPanels } = useXrPanels();

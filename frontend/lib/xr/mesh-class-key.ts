@@ -1,5 +1,7 @@
 export type MeshClassKey =
-  | "ggo"
-  | "reticulation"
+  | "emphysema"
+  | "fibrosis"
+  | "ground_glass"
+  | "micronodules"
   | "consolidation"
   | "lung_shell";

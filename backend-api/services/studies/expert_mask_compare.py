@@ -1,4 +1,4 @@
-﻿"""Expert/reference DICOM mask vs stored AI prediction: align, remap, Dice."""
+"""Expert/reference DICOM mask vs stored AI prediction: align, remap, Dice."""
 from __future__ import annotations
 
 import logging
@@ -26,7 +26,7 @@ from services.studies.upload import _normalize_dicom_upload
 
 logger = logging.getLogger(__name__)
 
-_COMPARE_SCOPE = "classes_1_2_3_only"
+_COMPARE_SCOPE = "classes_0_to_5"
 _MAPPING_CONFIDENCE = "strict_verified"
 
 _GGO_TOKENS = {
@@ -35,13 +35,26 @@ _GGO_TOKENS = {
     "ground-glass",
     "groundglass",
     "glass opacity",
+    "ground_glass",
 }
 _RETIC_TOKENS = {
     "retic",
     "reticular",
     "reticulation",
-    "fibrosis",
     "honeycomb",
+}
+_FIBROSIS_TOKENS = {
+    "fibrosis",
+    "fibrotic",
+}
+_EMPHYSEMA_TOKENS = {
+    "emphysema",
+    "emphysematous",
+}
+_MICRONODULES_TOKENS = {
+    "micronodule",
+    "micronodules",
+    "micro nodule",
 }
 _CONSOL_TOKENS = {
     "consolidation",
@@ -68,12 +81,18 @@ def _label_to_class_id(label_text: str) -> int | None:
     txt = _normalize_text(label_text)
     if not txt:
         return None
-    if any(tok in txt for tok in _GGO_TOKENS):
+    if any(tok in txt for tok in _EMPHYSEMA_TOKENS):
         return 1
-    if any(tok in txt for tok in _RETIC_TOKENS):
+    if any(tok in txt for tok in _FIBROSIS_TOKENS):
         return 2
-    if any(tok in txt for tok in _CONSOL_TOKENS):
+    if any(tok in txt for tok in _GGO_TOKENS):
         return 3
+    if any(tok in txt for tok in _MICRONODULES_TOKENS):
+        return 4
+    if any(tok in txt for tok in _CONSOL_TOKENS):
+        return 5
+    if any(tok in txt for tok in _RETIC_TOKENS):
+        return 2  # reticulation maps to fibrosis in 6-class schema
     return None
 
 
@@ -135,7 +154,7 @@ def _extract_segment_class_map(expert_slices: list[Any]) -> dict[int, int]:
 def _normalize_prediction_volume_to_classes_123(
     raw_volume: np.ndarray,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Normalize prediction labels to {0,1,2,3} deterministically."""
+    """Normalize prediction labels. Pass through valid 5-class masks; crush legacy formats."""
     v = np.asarray(raw_volume, dtype=np.uint8, copy=False)
     uniq = np.unique(v)
     raw_max = int(uniq.max()) if uniq.size else 0
@@ -149,6 +168,12 @@ def _normalize_prediction_volume_to_classes_123(
 
     if raw_max == 0:
         return np.zeros_like(v, dtype=np.uint8), meta
+
+    # Pass through valid 5-class ILD masks unchanged
+    if len(positives) <= 5 and all(1 <= p <= 5 for p in positives):
+        meta["prediction_remap_mode"] = "native_0_to_5"
+        meta["prediction_remap_note"] = "Prediction labels are valid 5-class ILD labels; passed through unchanged."
+        return v, meta
 
     if bool(np.all(v <= 3)):
         out = np.clip(v, 0, 3).astype(np.uint8, copy=False)
@@ -222,10 +247,10 @@ def _normalize_expert_volume_strict(
     if raw_max == 0:
         return np.zeros_like(v, dtype=np.uint8), meta
 
-    if bool(np.all(v <= 3)):
-        out = np.clip(v, 0, 3).astype(np.uint8, copy=False)
-        meta["expert_remap_mode"] = "native_0_to_3"
-        meta["expert_remap_note"] = "Expert labels were already in 0-3."
+    if bool(np.all(v <= 5)):
+        out = np.clip(v, 0, 5).astype(np.uint8, copy=False)
+        meta["expert_remap_mode"] = "native_0_to_5"
+        meta["expert_remap_note"] = "Expert labels were already in 0-5."
         return out, meta
 
     segment_map = _extract_segment_class_map(expert_slices or [])
@@ -248,14 +273,16 @@ def _normalize_expert_volume_strict(
             "code": "EXPERT_MASK_LABEL_MAPPING_REQUIRED",
             "message": (
                 "Expert mask labels are ambiguous for strict comparison. "
-                "Provide native 0-3 labels (0=background,1=ggo,2=reticulation,3=consolidation) "
+                "Provide native 0-5 labels (0=background,1=emphysema,2=fibrosis,3=ground_glass,4=micronodules,5=consolidation) "
                 "or upload DICOM SEG with segment names/codes that map to these classes."
             ),
             "detected_labels": detected,
             "mapping_required": {
-                "1": "ggo",
-                "2": "reticulation",
-                "3": "consolidation",
+                "1": "emphysema",
+                "2": "fibrosis",
+                "3": "ground_glass",
+                "4": "micronodules",
+                "5": "consolidation",
             },
         },
     )
@@ -355,8 +382,8 @@ def compare_expert_dicom_to_prediction_volume(
             }
 
     expert_labels_were_clipped = False
-    expert_labels_were_remapped = remap_mode not in ("native_0_to_3", "empty")
-    prediction_labels_were_remapped = pred_remap_mode not in ("native_0_to_3", "empty")
+    expert_labels_were_remapped = remap_mode not in ("native_0_to_3", "native_0_to_5", "empty")
+    prediction_labels_were_remapped = pred_remap_mode not in ("native_0_to_3", "native_0_to_5", "empty")
 
     if expert.shape != pred.shape:
         raise HTTPException(
@@ -414,12 +441,12 @@ def compare_expert_dicom_to_prediction_volume(
         "mapping_source": expert_meta.get("mapping_source"),
         "mapping_confidence": expert_meta.get("mapping_confidence"),
         "comparison_scope": expert_meta.get("comparison_scope"),
-        "expert_has_ggo": bool(np.any(expert == 1)),
+        "expert_has_ggo": bool(np.any(expert == 3)),
         "expert_has_reticulation": bool(np.any(expert == 2)),
-        "expert_has_consolidation": bool(np.any(expert == 3)),
-        "prediction_has_ggo": bool(np.any(pred == 1)),
+        "expert_has_consolidation": bool(np.any(expert == 5)),
+        "prediction_has_ggo": bool(np.any(pred == 3)),
         "prediction_has_reticulation": bool(np.any(pred == 2)),
-        "prediction_has_consolidation": bool(np.any(pred == 3)),
+        "prediction_has_consolidation": bool(np.any(pred == 5)),
         **alignment_meta,
         **diagnostics,
     }

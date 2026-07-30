@@ -1,4 +1,5 @@
 import type * as THREE from "three";
+import type { MeshClassVisibility } from "@/components/xr/experience/types";
 
 export type LungMeshCoreProps = {
   /** Ignored when `usePlaceholder` is true. */
@@ -7,12 +8,7 @@ export type LungMeshCoreProps = {
   usePlaceholder?: boolean;
   /** Opaque tissue-like shell; when false, semi-transparent shell (default XR lab). */
   realLungEnabled?: boolean;
-  classVisibility?: {
-    ggo: boolean;
-    reticulation: boolean;
-    consolidation: boolean;
-    lung_shell: boolean;
-  };
+  classVisibility?: MeshClassVisibility;
   /**
    * When set, pointer drag applies world-space deltas here instead of moving the
    * built-in lung group (used by the XR lab to drag the whole mesh from the parent).

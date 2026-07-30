@@ -3,8 +3,10 @@ import * as THREE from "three";
 import type { MeshClassKey } from "@/lib/xr/mesh-class-key";
 
 const LESION_COLORS: Record<Exclude<MeshClassKey, "lung_shell">, number> = {
-  ggo: 0x4a9e4a,
-  reticulation: 0x2a62c8,
+  emphysema: 0x1a5fcc,
+  fibrosis: 0xcc7000,
+  ground_glass: 0x4a9e4a,
+  micronodules: 0xbb33bb,
   consolidation: 0xd4a020,
 };
 

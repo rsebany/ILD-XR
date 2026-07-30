@@ -29,18 +29,32 @@ export function XrMetricsPanel({ metrics }: Props) {
   const ildBurden = metrics.ild_burden ?? metrics.ild_fraction;
   const classVolumeRows = [
     {
-      key: "ggo",
-      label: "GGO",
-      ml: metrics.ggo_volume_ml,
-      burden: metrics.ggo_burden,
+      key: "emphysema",
+      label: "Emphy",
+      ml: metrics.emphysema_volume_ml,
+      burden: metrics.emphysema_burden,
+      colorClass: "text-blue-300",
+    },
+    {
+      key: "fibrosis",
+      label: "Fibro",
+      ml: metrics.fibrosis_volume_ml,
+      burden: metrics.fibrosis_burden,
+      colorClass: "text-orange-300",
+    },
+    {
+      key: "ground_glass",
+      label: "GG",
+      ml: metrics.ground_glass_volume_ml,
+      burden: metrics.ground_glass_burden,
       colorClass: "text-emerald-300",
     },
     {
-      key: "reticulation",
-      label: "Ret",
-      ml: metrics.reticulation_volume_ml,
-      burden: metrics.reticulation_burden,
-      colorClass: "text-violet-300",
+      key: "micronodules",
+      label: "Micro",
+      ml: metrics.micronodules_volume_ml,
+      burden: metrics.micronodules_burden,
+      colorClass: "text-fuchsia-300",
     },
     {
       key: "consolidation",
@@ -60,7 +74,7 @@ export function XrMetricsPanel({ metrics }: Props) {
         valueClassName="text-base font-bold leading-tight text-white sm:text-lg"
         unitClassName="ml-1 text-[10px] font-normal text-slate-400"
       />
-      <div className="mt-1.5 grid grid-cols-3 gap-x-1 gap-y-0.5 border-t border-white/10 pt-1.5 text-[10px] leading-tight">
+      <div className="mt-1.5 grid grid-cols-5 gap-x-1 gap-y-0.5 border-t border-white/10 pt-1.5 text-[10px] leading-tight">
         {classVolumeRows.map((row) => {
           const vol = resolveClassVolumeMl(lungMl, row.ml, row.burden);
           return (

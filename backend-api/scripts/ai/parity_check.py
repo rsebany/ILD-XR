@@ -14,6 +14,12 @@ if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
 from common.bootstrap import ensure_backend_api_on_path
+from common.paths import (
+    DEFAULT_ENCODER_WEIGHTS_PATH,
+    DEFAULT_MED3D_WEIGHTS_PATH,
+    DEFAULT_SOFTMAX_WEIGHTS_PATH,
+    DEFAULT_WEIGHTS_PATH,
+)
 from common.mask_compare import (
     evaluate_dice_thresholds,
     load_reference_mask,
@@ -28,7 +34,7 @@ def main() -> int:
         description="Parity check: backend inference mask vs notebook reference mask."
     )
     parser.add_argument("--dicom-dir", required=True, help="Directory containing DICOM slices.")
-    parser.add_argument("--weights", required=True, help="Path to .pth model weights.")
+    parser.add_argument("--weights", default=None, help="Path to encoder .pth weights.")
     parser.add_argument(
         "--reference-mask",
         required=True,
@@ -56,11 +62,15 @@ def main() -> int:
     from services.ai.inference import process_dicom_zip_dir  # noqa: E402
 
     dicom_dir = Path(args.dicom_dir).resolve()
-    weights_path = Path(args.weights).resolve()
+    weights_path = Path(args.weights).resolve() if args.weights else DEFAULT_WEIGHTS_PATH
     ref_path = Path(args.reference_mask).resolve()
 
     pred_mask, _spacing, _volume_hu, _lung_mask = process_dicom_zip_dir(
-        dicom_dir, weights_path
+        dicom_dir,
+        weights_path,
+        encoder_weights=DEFAULT_ENCODER_WEIGHTS_PATH,
+        softmax_weights=DEFAULT_SOFTMAX_WEIGHTS_PATH,
+        med3d_weights=DEFAULT_MED3D_WEIGHTS_PATH,
     )
     pred_mask = np.asarray(pred_mask, dtype=np.uint8)
     ref_mask = load_reference_mask(ref_path)

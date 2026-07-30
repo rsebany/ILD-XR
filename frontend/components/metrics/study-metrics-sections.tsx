@@ -101,20 +101,36 @@ export function LesionClassBurdenGrid({
 
   const cells = [
     {
+      key: "emphysema",
+      title: "Emphy.",
+      burden: metrics.emphysema_burden,
+      volumeMl: metrics.emphysema_volume_ml,
+      titleClass: "text-blue-300",
+      boxClass: "bg-blue-500/10",
+    },
+    {
+      key: "fibrosis",
+      title: "Fibrosis",
+      burden: metrics.fibrosis_burden,
+      volumeMl: metrics.fibrosis_volume_ml,
+      titleClass: "text-orange-300",
+      boxClass: "bg-orange-500/10",
+    },
+    {
       key: "ggo",
-      title: "GGO",
-      burden: metrics.ggo_burden,
-      volumeMl: metrics.ggo_volume_ml,
+      title: "GG",
+      burden: metrics.ground_glass_burden,
+      volumeMl: metrics.ground_glass_volume_ml,
       titleClass: "text-emerald-300",
       boxClass: "bg-emerald-500/10",
     },
     {
-      key: "retic",
-      title: "Retic.",
-      burden: metrics.reticulation_burden,
-      volumeMl: metrics.reticulation_volume_ml,
-      titleClass: "text-sky-300",
-      boxClass: "bg-sky-500/10",
+      key: "micronodules",
+      title: "Micro.",
+      burden: metrics.micronodules_burden,
+      volumeMl: metrics.micronodules_volume_ml,
+      titleClass: "text-fuchsia-300",
+      boxClass: "bg-fuchsia-500/10",
     },
     {
       key: "cons",
@@ -127,7 +143,7 @@ export function LesionClassBurdenGrid({
   ] as const;
 
   return (
-    <div className="mt-1 grid grid-cols-3 gap-2 text-[11px]">
+    <div className="mt-1 grid grid-cols-5 gap-2 text-[11px]">
       {cells.map((c) => (
         <div key={c.key} className={cn("rounded-md px-2 py-1", c.boxClass)}>
           <p className={cn("font-semibold", c.titleClass)}>{c.title}</p>

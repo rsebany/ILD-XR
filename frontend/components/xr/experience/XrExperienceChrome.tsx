@@ -2,6 +2,7 @@
 
 import { XrBottomToolbar } from "../toolbar";
 import { XrImmersiveHud, XrLabHeader, XrMetricsPanel, XrStatusOverlays } from "../chrome";
+import { SegmentationClassLegend } from "@/components/features/viewer/ui/SegmentationClassLegend";
 import type { StudyMetrics } from "@/api/domain";
 import type { MeshClassVisibility, XrExperienceMode } from "./types";
 
@@ -50,7 +51,10 @@ export function XrExperienceChrome(props: Props) {
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 pb-3 pt-[calc(var(--safe-area-top)+0.75rem)] sm:p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <XrLabHeader studyId={studyId} syncConnected={syncConnected} />
-            {metrics && <XrMetricsPanel metrics={metrics} />}
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              {metrics && <XrMetricsPanel metrics={metrics} />}
+              <SegmentationClassLegend compact palette="mesh3d" className="max-w-[16rem] border-white/10 bg-slate-900/85 text-white [&_p]:text-slate-400 [&_span]:text-slate-200" />
+            </div>
           </div>
         </div>
       )}

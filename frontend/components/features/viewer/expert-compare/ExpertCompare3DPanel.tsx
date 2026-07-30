@@ -21,8 +21,10 @@ import { Button } from "@/components/ui/button";
 import { imagingContextQuery, studyViewerHref } from "@/lib/imaging";
 
 const CLASS_TOGGLE_META: Record<MeshClassKey, { label: string; swatch: string }> = {
-  ggo: { label: "GGO", swatch: "bg-[#66CC66]" },
-  reticulation: { label: "Reticulation", swatch: "bg-[#2B77FF]" },
+  emphysema: { label: "Emphysema", swatch: "bg-[#2B77FF]" },
+  fibrosis: { label: "Fibrosis", swatch: "bg-[#FF8C00]" },
+  ground_glass: { label: "Ground Glass", swatch: "bg-[#66CC66]" },
+  micronodules: { label: "Micronodules", swatch: "bg-[#DD44DD]" },
   consolidation: { label: "Consolidation", swatch: "bg-[#FFE640]" },
   lung_shell: { label: "Lung", swatch: "bg-rose-400" },
 };
@@ -34,7 +36,7 @@ function ClassVisibilityToggles({
   visibility: Required<MeshClassVisibility>;
   onToggle: (key: MeshClassKey) => void;
 }) {
-  const order: MeshClassKey[] = ["ggo", "reticulation", "consolidation", "lung_shell"];
+  const order: MeshClassKey[] = ["emphysema", "fibrosis", "ground_glass", "micronodules", "consolidation", "lung_shell"];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5">
       <span className="shrink-0 pr-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

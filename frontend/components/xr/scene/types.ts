@@ -1,11 +1,7 @@
 import type { ArQualityPreset } from "../experience/types";
+import type { MeshClassKey } from "../experience/types";
 
-export type MeshClassVisibility = {
-  ggo: boolean;
-  reticulation: boolean;
-  consolidation: boolean;
-  lung_shell: boolean;
-};
+export type MeshClassVisibility = Record<MeshClassKey, boolean>;
 
 export type XRSceneContentProps = {
   meshUrl: string;
@@ -30,7 +26,6 @@ export type XRSceneContentProps = {
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
   sceneVariant?: "vr" | "ar";
   arQuality?: ArQualityPreset;
-  arPerformanceMode?: boolean;
   onArQualityChange: (next: ArQualityPreset) => void;
   syncConnected: boolean;
   isDicomPlaying: boolean;

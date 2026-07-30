@@ -1,4 +1,4 @@
-"""Study outputs: mesh URL, mask bytes, DICOM shape, expert-compare mesh."""
+"""Study outputs: mesh URL, mask bytes, DICOM shape."""
 
 from __future__ import annotations
 
@@ -29,7 +29,16 @@ from .common import (
 
 router = APIRouter(prefix="/studies", tags=["studies"])
 
-_MASK_LABEL_SEMANTICS = "0=background,1=ggo,2=reticulation,3=consolidation"
+_MASK_LABEL_SEMANTICS = "0=background,1=emphysema,2=fibrosis,3=ground_glass,4=micronodules,5=consolidation"
+
+_VALID_ILD_CLASSES = frozenset({1, 2, 3, 4, 5})
+
+
+def _mask_already_valid_5class(arr: np.ndarray) -> bool:
+    """Return True when every positive label is in {1,2,3,4,5}."""
+    uniq = np.unique(arr)
+    positives = sorted(int(x) for x in uniq if x > 0)
+    return len(positives) <= 5 and all(1 <= p <= 5 for p in positives)
 
 
 # ---------------------------------------------------------------------------
@@ -129,82 +138,81 @@ async def get_study_mesh(
 
 
 # ---------------------------------------------------------------------------
-# Expert-compare artifacts (after POST …/expert-mask-compare)
+# Expert-compare mesh — DISABLED (label normalization issues)
 # ---------------------------------------------------------------------------
-
-
-@router.get(
-    "/{study_id}/expert-compare/expert-mesh",
-    summary="GLB mesh from last expert DICOM compare",
-    name="studies_expert_compare_expert_mesh",
-)
-async def get_expert_compare_expert_mesh(
-    study_id: str,
-    current_user: TokenPayload = Depends(get_current_user),
-) -> dict:
-    """Build or return cached GLB from ``{study_id}.expert_compare.npy`` (remapped expert labels)."""
-    with get_session() as session:
-        get_owned_study_or_404(session, study_id, current_user)
-
-    npy_path = MASK_STORAGE / f"{study_id}.expert_compare.npy"
-    if not npy_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No expert compare volume. Run expert mask compare on Upload DICOM first.",
-        )
-
-    token = _safe_study_file_token(study_id)
-    glb_path = STATIC_MESH_DIR / f"expert_compare_{token}.glb"
-    try:
-        npy_mtime = npy_path.stat().st_mtime
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Cannot read expert mask file: {exc}") from exc
-
-    if glb_path.is_file():
-        try:
-            if glb_path.stat().st_mtime >= npy_mtime:
-                return {"mesh_url": f"/static/meshes/{glb_path.name}"}
-        except OSError:
-            pass
-
-    study_dicom_dir = _ensure_study_dicom_dir(study_id)
-    if not study_dicom_dir.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
-
-    try:
-        volume, slices = _load_dicom_volume_and_slices(study_dicom_dir)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-    slope = float(getattr(slices[0], "RescaleSlope", 1.0))
-    intercept = float(getattr(slices[0], "RescaleIntercept", 0.0))
-    vol_hu = volume * slope + intercept
-    spacing = _dicom_series_spacing_mm(slices)
-
-    expert = np.load(npy_path).astype(np.uint8)
-    if expert.shape != vol_hu.shape:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                f"Expert compare shape {tuple(expert.shape)} does not match CT "
-                f"{tuple(vol_hu.shape)}; cannot build mesh."
-            ),
-        )
-
-    mesh_url = generate_mesh_glb(
-        expert,
-        STATIC_MESH_DIR,
-        spacing,
-        volume_hu=vol_hu.astype(np.float32, copy=False),
-        lung_mask=None,
-        output_filename=f"expert_compare_{token}.glb",
-    )
-    if not mesh_url or not str(mesh_url).strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Expert mask produced an empty mesh (no foreground voxels to surface).",
-        )
-    return {"mesh_url": mesh_url}
+#
+# @router.get(
+#     "/{study_id}/expert-compare/expert-mesh",
+#     summary="GLB mesh from last expert DICOM compare",
+#     name="studies_expert_compare_expert_mesh",
+# )
+# async def get_expert_compare_expert_mesh(
+#     study_id: str,
+#     current_user: TokenPayload = Depends(get_current_user),
+# ) -> dict:
+#     """Build or return cached GLB from ``{study_id}.expert_compare.npy`` (remapped expert labels)."""
+#     with get_session() as session:
+#         get_owned_study_or_404(session, study_id, current_user)
+#
+#     npy_path = MASK_STORAGE / f"{study_id}.expert_compare.npy"
+#     if not npy_path.is_file():
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="No expert compare volume. Run expert mask compare on Upload DICOM first.",
+#         )
+#
+#     token = _safe_study_file_token(study_id)
+#     glb_path = STATIC_MESH_DIR / f"expert_compare_{token}.glb"
+#     try:
+#         npy_mtime = npy_path.stat().st_mtime
+#     except OSError as exc:
+#         raise HTTPException(status_code=500, detail=f"Cannot read expert mask file: {exc}") from exc
+#
+#     if glb_path.is_file():
+#         try:
+#             if glb_path.stat().st_mtime >= npy_mtime:
+#                 return {"mesh_url": f"/static/meshes/{glb_path.name}"}
+#         except OSError:
+#             pass
+#
+#     study_dicom_dir = _ensure_study_dicom_dir(study_id)
+#     if not study_dicom_dir.exists():
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM data not found on disk")
+#
+#     try:
+#         volume, slices = _load_dicom_volume_and_slices(study_dicom_dir)
+#     except ValueError as exc:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+#
+#     slope = float(getattr(slices[0], "RescaleSlope", 1.0))
+#     intercept = float(getattr(slices[0], "RescaleIntercept", 0.0))
+#     vol_hu = volume * slope + intercept
+#     spacing = _dicom_series_spacing_mm(slices)
+#
+#     expert = np.load(npy_path).astype(np.uint8)
+#     if expert.shape != vol_hu.shape:
+#         raise HTTPException(
+#             status_code=500,
+#             detail=(
+#                 f"Expert compare shape {tuple(expert.shape)} does not match CT "
+#                 f"{tuple(vol_hu.shape)}; cannot build mesh."
+#             ),
+#         )
+#
+#     mesh_url = generate_mesh_glb(
+#         expert,
+#         STATIC_MESH_DIR,
+#         spacing,
+#         volume_hu=vol_hu.astype(np.float32, copy=False),
+#         lung_mask=None,
+#         output_filename=f"expert_compare_{token}.glb",
+#     )
+#     if not mesh_url or not str(mesh_url).strip():
+#         raise HTTPException(
+#             status_code=422,
+#             detail="Expert mask produced an empty mesh (no foreground voxels to surface).",
+#         )
+#     return {"mesh_url": mesh_url}
 
 
 @router.get(
@@ -224,9 +232,8 @@ async def get_study_mask(
         arr = np.load(mask_path).astype("uint8")
         if arr.ndim != 3:
             raise HTTPException(status_code=500, detail="Stored mask on disk has invalid shape; expected 3D volume.")
-        arr, changed = _normalize_volume_to_classes_123(arr)
-        if changed:
-            np.save(mask_path, arr)
+        if not _mask_already_valid_5class(arr):
+            arr, _ = _normalize_volume_to_classes_123(arr)
         return _mask_streaming_response(arr)
 
     with get_session() as session:
@@ -254,7 +261,8 @@ async def get_study_mask(
                 raise HTTPException(status_code=422, detail="Mask bytes length does not match reported shape.")
 
             arr = np.frombuffer(raw, dtype=np.uint8).reshape(d, h, w)
-            arr, _changed = _normalize_volume_to_classes_123(arr)
+            if not _mask_already_valid_5class(arr):
+                arr, _ = _normalize_volume_to_classes_123(arr)
             disk_path = MASK_STORAGE / f"{study_id}.npy"
             np.save(disk_path, arr)
             seg.mask_path = str(disk_path)
@@ -266,9 +274,8 @@ async def get_study_mask(
         arr = _analysis_cache[study_id]["mask"].astype("uint8")
         if not isinstance(arr, np.ndarray) or arr.ndim != 3:
             raise HTTPException(status_code=500, detail="Cached mask has invalid shape; expected 3D volume.")
-        arr, changed = _normalize_volume_to_classes_123(arr)
-        if changed:
-            _analysis_cache[study_id]["mask"] = arr
+        if not _mask_already_valid_5class(arr):
+            arr, _ = _normalize_volume_to_classes_123(arr)
         return _mask_streaming_response(arr)
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mask not available")

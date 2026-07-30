@@ -1,0 +1,46 @@
+{
+  "protocol": "113-patient patient-disjoint 3x5 repeated StratifiedKFold + full-volume cascade",
+  "primary_head": "binary (Normal vs Any-ILD)",
+  "training": {
+    "phase1": "Binary-only discriminative fine-tuning (stem/layer1/layer2=1e-6, layer3=1e-5, layer4=3e-5, binary head=1e-4); hier/path heads frozen during CV",
+    "phase2": "Multi-head fine-tuning with binary Softmax head frozen throughout: (a) epochs 1-5 hier+path only (encoder+binary frozen, lr=1e-4); (b) epochs 6-15 layer4 unfrozen (encoder 3e-5, hier/path 1e-4); (c) epochs 16-20 full encoder + hier/path at 1e-5, binary still frozen; safety revert if binary patch F1 < 0.85"
+  },
+  "cascade": {
+    "decision_rule": "dual-threshold: pathology_fraction >= 0.005 OR mean_ild_prob >= 0.45",
+    "note": "Patient-level binary only; voxel pathology maps remain plain argmax of Softmax votes",
+    "patch_size": [16, 64, 64],
+    "stride": [4, 8, 8],
+    "postprocess": "median filter kernel 3"
+  },
+  "phase1_binary_patch_cv": {
+    "mean_f1": 0.680,
+    "bootstrap_95ci": [0.614, 0.757],
+    "note": "Concatenated OOF patch-level binary F1 with bootstrap 95% CI (1000 iterations)"
+  },
+  "phase1_binary_cascade_cv": {
+    "mean_f1": 0.847,
+    "std_f1": 0.103,
+    "patient_binary_acc_mean": 0.755,
+    "patient_binary_acc_std": 0.131,
+    "note": "15-fold patient-level cascade mean under Phase-1 CV (primary generalization claim)"
+  },
+  "phase1_binary_cascade_best": {
+    "patient_binary_f1": 0.8879,
+    "patient_binary_acc": 0.8000,
+    "checkpoint": "R0F1 (best binary fold)",
+    "note": "Patient-level cascade on best Phase-1 checkpoint before Phase-2"
+  },
+  "phase2": {
+    "status": "complete",
+    "patient_binary_f1": 0.938,
+    "patient_binary_acc": 0.885,
+    "patient_hier_macro_f1": 0.252,
+    "patient_path_macro_f1": 0.078,
+    "note": "Deployed full-cohort Phase-2 checkpoint (binary head frozen; encoder layer4 refinement)"
+  },
+  "calibration": {
+    "binary_ece": 0.052,
+    "binary_brier": 0.460
+  },
+  "source_exports": "backend-api/results/ and Experimentations notebooks (see README Evaluation)"
+}

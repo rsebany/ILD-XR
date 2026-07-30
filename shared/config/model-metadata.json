@@ -1,9 +1,25 @@
 {
-  "model_name": "3D-Res-UNet",
-  "description": "3D residual U-Net for ILD segmentation on chest CT.",
+  "model_name": "ILD-XR Hierarchical Pipeline (paper v4.0)",
+  "description": "lungmask R231 preprocessing + HierarchicalEncoder3D (Med3D-initialized, SE blocks) with 3 Softmax heads: binary screening (primary), 3-class fibrotic grouping (secondary), 5-class pathology mapping (tertiary).",
   "owner": "ILD-XR",
   "input_modality": "ct",
-  "input_description": "Single DICOM chest CT series (axial slices).",
-  "version": "1.0.0"
+  "input_description": "Single DICOM chest CT series (axial slices), 113-patient patient-disjoint repeated CV protocol.",
+  "version": "4.0.0",
+  "classes": ["Normal", "Emphysema", "Fibrosis", "Ground Glass", "Micronodules", "Consolidation"],
+  "hierarchical_heads": {
+    "binary": "Normal vs Any-ILD (primary)",
+    "three_class": "Normal / Fibrotic / NonFibrotic (secondary)",
+    "five_class": "5-class pathology mapping (tertiary)"
+  },
+  "architecture": {
+    "stage1": "lungmask R231 (fixed preprocessing, not trained)",
+    "stage2_encoder": "HierarchicalEncoder3D (3D ResNet-18 + SE blocks, 512-dim)",
+    "stage2_heads": "binary_head + hier_head + path_head (shared encoder)"
+  },
+  "inference": {
+    "patch_size": [16, 64, 64],
+    "dense_stride": [4, 8, 8],
+    "cascade_path_thresh": 0.005,
+    "cascade_prob_thresh": 0.45
+  }
 }
-

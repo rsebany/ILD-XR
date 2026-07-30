@@ -9,15 +9,19 @@ import { resolveMeshClassKey } from "@/lib/xr/resolve-mesh-class-key";
 import type { MeshClassKey, MeshVisualPreset } from "../three-viewer.types";
 
 const SEGMENTATION_CLASS_COLORS: Record<Exclude<MeshClassKey, "lung_shell">, number> = {
-  ggo: 0x66cc66,
-  reticulation: 0x2b77ff,
+  emphysema: 0x2b77ff,
+  fibrosis: 0xff8c00,
+  ground_glass: 0x66cc66,
+  micronodules: 0xdd44dd,
   consolidation: 0xffe640,
 };
 const SHELL_COLOR = 0xc4847a;
 
 const CLASS_COLOR_VECTORS: Record<MeshClassKey, THREE.Color> = {
-  ggo: new THREE.Color(SEGMENTATION_CLASS_COLORS.ggo),
-  reticulation: new THREE.Color(SEGMENTATION_CLASS_COLORS.reticulation),
+  emphysema: new THREE.Color(SEGMENTATION_CLASS_COLORS.emphysema),
+  fibrosis: new THREE.Color(SEGMENTATION_CLASS_COLORS.fibrosis),
+  ground_glass: new THREE.Color(SEGMENTATION_CLASS_COLORS.ground_glass),
+  micronodules: new THREE.Color(SEGMENTATION_CLASS_COLORS.micronodules),
   consolidation: new THREE.Color(SEGMENTATION_CLASS_COLORS.consolidation),
   lung_shell: new THREE.Color(SHELL_COLOR),
 };

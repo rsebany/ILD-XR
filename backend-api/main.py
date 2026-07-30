@@ -97,6 +97,8 @@ def startup_event() -> None:
     """Initialize DB and log LAN / Slicer hints for local development."""
     init_db()
     logging.info("Database tables verified/initialized.")
+    from services.ai.config import DEVICE, FORCE_CPU
+    logging.info("AI inference device: %s%s", DEVICE, " (forced CPU)" if FORCE_CPU else "")
     if API_HOST in ("0.0.0.0", ""):
         base = _lan_api_base_url()
         logging.info(
@@ -147,19 +149,30 @@ app.include_router(segmentation_sync_router)
 async def health_check() -> dict:
     """System status, AI model metadata, XR and Slicer integration hints."""
     model_meta_path = SHARED_DIR / "config" / "model-metadata.json"
+    eval_meta_path = SHARED_DIR / "config" / "evaluation-metrics.json"
     ai_model_name = "unknown"
+    model_meta: dict = {}
+    eval_meta: dict = {}
     if model_meta_path.exists():
         try:
             with model_meta_path.open("r", encoding="utf-8") as f:
-                meta = json.load(f)
-            ai_model_name = meta.get("model_name", ai_model_name)
+                model_meta = json.load(f)
+            ai_model_name = model_meta.get("model_name", ai_model_name)
         except Exception:
             logging.exception("Failed to read model-metadata.json")
+    if eval_meta_path.exists():
+        try:
+            with eval_meta_path.open("r", encoding="utf-8") as f:
+                eval_meta = json.load(f)
+        except Exception:
+            logging.exception("Failed to read evaluation-metrics.json")
 
     return {
         "status": "online",
         "infrastructure": "ready",
         "ai_model": ai_model_name,
+        "model_metadata": model_meta or None,
+        "evaluation_metrics": eval_meta or None,
         "storage": "connected",
         "xr": {
             "api_bind": f"{API_HOST}:{API_PORT}",

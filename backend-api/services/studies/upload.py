@@ -79,13 +79,27 @@ def _sanitize_class_metrics(raw: dict[str, Any]) -> dict[str, float]:
     for key in (
         "total_ild_volume_ml",
         "lung_volume_ml",
-        "ggo_volume_ml",
-        "reticulation_volume_ml",
+        "emphysema_volume_ml",
+        "fibrosis_volume_ml",
+        "ground_glass_volume_ml",
+        "micronodules_volume_ml",
         "consolidation_volume_ml",
     ):
         m[key] = _safe_float(m.get(key), default=0.0, minimum=0.0)
-    for key in ("ggo_burden", "reticulation_burden", "consolidation_burden", "ild_burden"):
+    for key in (
+        "emphysema_burden",
+        "fibrosis_burden",
+        "ground_glass_burden",
+        "micronodules_burden",
+        "consolidation_burden",
+        "ild_burden",
+        "pathology_fraction",
+        "mean_ild_prob",
+    ):
         m[key] = _safe_float(m.get(key), default=0.0, minimum=0.0, maximum=1.0)
+    m["patient_binary_ild"] = float(
+        1 if _safe_float(m.get("patient_binary_ild"), default=0.0, minimum=0.0, maximum=1.0) >= 0.5 else 0
+    )
     return m  # type: ignore[return-value]
 
 
@@ -230,6 +244,10 @@ async def upload_study_impl(
     base_dir: Path,
     static_mesh_dir: Path,
     weights_path: Path,
+    encoder_weights: Path | None = None,
+    softmax_weights: Path | None = None,
+    med3d_weights: Path | None = None,
+    hierarchical_ckpt: Path | None = None,
     mask_storage: Path,
     dicom_storage: Path,
     log_prefix: str,
@@ -247,14 +265,25 @@ async def upload_study_impl(
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required to save data.")
 
-    if not weights_path.is_file():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "AI model weights are not installed on the server. "
-                f"Expected file at {weights_path}."
-            ),
+    missing = []
+    use_hierarchical = hierarchical_ckpt is not None and hierarchical_ckpt.is_file()
+    if use_hierarchical:
+        if med3d_weights is not None and not med3d_weights.is_file():
+            missing.append(f"Med3D init weights: {med3d_weights}")
+    else:
+        enc_path = encoder_weights or weights_path
+        if not enc_path.is_file():
+            missing.append(f"Med3D encoder: {enc_path}")
+        if softmax_weights is None or not softmax_weights.is_file():
+            missing.append(f"Softmax head: {softmax_weights}")
+        if med3d_weights is not None and not med3d_weights.is_file():
+            missing.append(f"Med3D init weights: {med3d_weights}")
+    if missing:
+        detail = (
+            "AI model weights are not installed on the server. Missing:\n"
+            + "\n".join(f"  - {m}" for m in missing)
         )
+        raise HTTPException(status_code=503, detail=detail)
 
     file, files = _normalize_dicom_upload(file, files)
 
@@ -294,7 +323,16 @@ async def upload_study_impl(
                     shutil.copyfileobj(f.file, out_f)
 
         try:
-            mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(temp_dir, weights_path)
+            cascade_stats: dict[str, Any] = {}
+            mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(
+                temp_dir,
+                weights_path,
+                encoder_weights=encoder_weights or weights_path,
+                softmax_weights=softmax_weights,
+                med3d_weights=med3d_weights,
+                hierarchical_ckpt=hierarchical_ckpt if use_hierarchical else None,
+                cascade_stats=cascade_stats,
+            )
         except DicomInputError as e:
             logging.exception(
                 "DICOM validation error in %s/upload [request_id=%s]",
@@ -328,16 +366,24 @@ async def upload_study_impl(
 
         try:
             class_metrics = compute_class_metrics(mask, spacing, lung_mask=lung_mask)
+            if cascade_stats:
+                class_metrics["pathology_fraction"] = float(cascade_stats.get("pathology_fraction", 0.0))
+                class_metrics["mean_ild_prob"] = float(cascade_stats.get("mean_ild_prob", 0.0))
+                class_metrics["patient_binary_ild"] = float(cascade_stats.get("patient_binary_ild", 0))
         except Exception as e:
             logging.exception("compute_class_metrics failed in %s/upload", log_prefix)
             class_metrics = {
                 "total_ild_volume_ml": 0.0,
                 "lung_volume_ml": 0.0,
-                "ggo_volume_ml": 0.0,
-                "reticulation_volume_ml": 0.0,
+                "emphysema_volume_ml": 0.0,
+                "fibrosis_volume_ml": 0.0,
+                "ground_glass_volume_ml": 0.0,
+                "micronodules_volume_ml": 0.0,
                 "consolidation_volume_ml": 0.0,
-                "ggo_burden": 0.0,
-                "reticulation_burden": 0.0,
+                "emphysema_burden": 0.0,
+                "fibrosis_burden": 0.0,
+                "ground_glass_burden": 0.0,
+                "micronodules_burden": 0.0,
                 "consolidation_burden": 0.0,
                 "ild_burden": 0.0,
             }
@@ -414,6 +460,10 @@ async def upload_study_impl(
             payload["sex"] = dicom_patient.get("sex", "U")
 
         mask_path = _save_mask_to_disk(mask_storage, study_ext_id, mask)
+
+        # Persist binary lung mask for slice viewer boundary overlay
+        lung_mask_disk = mask_storage / f"{study_ext_id}_lung.npy"
+        np.save(lung_mask_disk, lung_mask.astype("uint8"))
 
         study_dicom_dir = dicom_storage / study_ext_id
         try:
@@ -494,12 +544,16 @@ async def upload_study_impl(
                     total_ild_volume_ml=total_vol,
                     ild_fraction=ild_burden,
                     lung_volume_ml=class_metrics["lung_volume_ml"],
-                    ggo_volume_ml=class_metrics["ggo_volume_ml"],
-                    reticulation_volume_ml=class_metrics["reticulation_volume_ml"],
-                    consolidation_volume_ml=class_metrics["consolidation_volume_ml"],
-                    ggo_burden=class_metrics["ggo_burden"],
-                    reticulation_burden=class_metrics["reticulation_burden"],
-                    consolidation_burden=class_metrics["consolidation_burden"],
+                    emphysema_volume_ml=class_metrics.get("emphysema_volume_ml", 0.0),
+                    fibrosis_volume_ml=class_metrics.get("fibrosis_volume_ml", 0.0),
+                    ground_glass_volume_ml=class_metrics.get("ground_glass_volume_ml", 0.0),
+                    micronodules_volume_ml=class_metrics.get("micronodules_volume_ml", 0.0),
+                    consolidation_volume_ml=class_metrics.get("consolidation_volume_ml", 0.0),
+                    emphysema_burden=class_metrics.get("emphysema_burden", 0.0),
+                    fibrosis_burden=class_metrics.get("fibrosis_burden", 0.0),
+                    ground_glass_burden=class_metrics.get("ground_glass_burden", 0.0),
+                    micronodules_burden=class_metrics.get("micronodules_burden", 0.0),
+                    consolidation_burden=class_metrics.get("consolidation_burden", 0.0),
                     zonal_distribution=zonal_dist,
                     mesh_url=mesh_url or "",
                     mask_path=mask_path,
@@ -535,29 +589,41 @@ async def upload_study_impl(
                     ild_burden=_safe_float(seg_orm.ild_fraction, minimum=0.0, maximum=1.0)
                     if seg_orm.ild_fraction is not None
                     else None,
-                    ggo_volume_ml=_safe_float(seg_orm.ggo_volume_ml, minimum=0.0)
-                    if seg_orm.ggo_volume_ml is not None
+                    ground_glass_volume_ml=_safe_float(seg_orm.ground_glass_volume_ml, minimum=0.0)
+                    if seg_orm.ground_glass_volume_ml is not None
                     else None,
-                    reticulation_volume_ml=_safe_float(seg_orm.reticulation_volume_ml, minimum=0.0)
-                    if seg_orm.reticulation_volume_ml is not None
+                    fibrosis_volume_ml=_safe_float(seg_orm.fibrosis_volume_ml, minimum=0.0)
+                    if seg_orm.fibrosis_volume_ml is not None
                     else None,
                     consolidation_volume_ml=_safe_float(
                         seg_orm.consolidation_volume_ml, minimum=0.0
                     )
                     if seg_orm.consolidation_volume_ml is not None
                     else None,
-                    ggo_burden=_safe_float(seg_orm.ggo_burden, minimum=0.0, maximum=1.0)
-                    if seg_orm.ggo_burden is not None
+                    emphysema_volume_ml=_safe_float(seg_orm.emphysema_volume_ml, minimum=0.0)
+                    if seg_orm.emphysema_volume_ml is not None
                     else None,
-                    reticulation_burden=_safe_float(
-                        seg_orm.reticulation_burden, minimum=0.0, maximum=1.0
+                    micronodules_volume_ml=_safe_float(seg_orm.micronodules_volume_ml, minimum=0.0)
+                    if seg_orm.micronodules_volume_ml is not None
+                    else None,
+                    ground_glass_burden=_safe_float(seg_orm.ground_glass_burden, minimum=0.0, maximum=1.0)
+                    if seg_orm.ground_glass_burden is not None
+                    else None,
+                    fibrosis_burden=_safe_float(
+                        seg_orm.fibrosis_burden, minimum=0.0, maximum=1.0
                     )
-                    if seg_orm.reticulation_burden is not None
+                    if seg_orm.fibrosis_burden is not None
                     else None,
                     consolidation_burden=_safe_float(
                         seg_orm.consolidation_burden, minimum=0.0, maximum=1.0
                     )
                     if seg_orm.consolidation_burden is not None
+                    else None,
+                    emphysema_burden=_safe_float(seg_orm.emphysema_burden, minimum=0.0, maximum=1.0)
+                    if seg_orm.emphysema_burden is not None
+                    else None,
+                    micronodules_burden=_safe_float(seg_orm.micronodules_burden, minimum=0.0, maximum=1.0)
+                    if seg_orm.micronodules_burden is not None
                     else None,
                     zonal_distribution=_sanitize_zonal(seg_orm.zonal_distribution or {}),
                     mesh_url=seg_orm.mesh_url or "",

@@ -203,8 +203,10 @@ export function ExpertMaskCompareSection({
                 ? k.slice("dice_".length)
                 : k;
               const vac =
-                lesionClass === "ggo" ||
-                lesionClass === "reticulation" ||
+                lesionClass === "emphysema" ||
+                lesionClass === "fibrosis" ||
+                lesionClass === "ground_glass" ||
+                lesionClass === "micronodules" ||
                 lesionClass === "consolidation"
                   ? Boolean(result.dice_vacuous_both_empty?.[lesionClass])
                   : false;

@@ -72,11 +72,15 @@ def _refresh_analysis_cache(
         "ild_burden": float(class_metrics["ild_burden"]),
         "zonal_distribution": zonal,
         "lung_volume_ml": class_metrics["lung_volume_ml"],
-        "ggo_volume_ml": class_metrics["ggo_volume_ml"],
-        "reticulation_volume_ml": class_metrics["reticulation_volume_ml"],
+        "emphysema_volume_ml": class_metrics["emphysema_volume_ml"],
+        "fibrosis_volume_ml": class_metrics["fibrosis_volume_ml"],
+        "ground_glass_volume_ml": class_metrics["ground_glass_volume_ml"],
+        "micronodules_volume_ml": class_metrics["micronodules_volume_ml"],
         "consolidation_volume_ml": class_metrics["consolidation_volume_ml"],
-        "ggo_burden": class_metrics["ggo_burden"],
-        "reticulation_burden": class_metrics["reticulation_burden"],
+        "emphysema_burden": class_metrics["emphysema_burden"],
+        "fibrosis_burden": class_metrics["fibrosis_burden"],
+        "ground_glass_burden": class_metrics["ground_glass_burden"],
+        "micronodules_burden": class_metrics["micronodules_burden"],
         "consolidation_burden": class_metrics["consolidation_burden"],
     }
 
@@ -95,11 +99,15 @@ def _update_segmentation_row(
     seg.total_ild_volume_ml = class_metrics["total_ild_volume_ml"]
     seg.ild_fraction = class_metrics["ild_burden"]
     seg.lung_volume_ml = class_metrics["lung_volume_ml"]
-    seg.ggo_volume_ml = class_metrics["ggo_volume_ml"]
-    seg.reticulation_volume_ml = class_metrics["reticulation_volume_ml"]
+    seg.emphysema_volume_ml = class_metrics["emphysema_volume_ml"]
+    seg.fibrosis_volume_ml = class_metrics["fibrosis_volume_ml"]
+    seg.ground_glass_volume_ml = class_metrics["ground_glass_volume_ml"]
+    seg.micronodules_volume_ml = class_metrics["micronodules_volume_ml"]
     seg.consolidation_volume_ml = class_metrics["consolidation_volume_ml"]
-    seg.ggo_burden = class_metrics["ggo_burden"]
-    seg.reticulation_burden = class_metrics["reticulation_burden"]
+    seg.emphysema_burden = class_metrics["emphysema_burden"]
+    seg.fibrosis_burden = class_metrics["fibrosis_burden"]
+    seg.ground_glass_burden = class_metrics["ground_glass_burden"]
+    seg.micronodules_burden = class_metrics["micronodules_burden"]
     seg.consolidation_burden = class_metrics["consolidation_burden"]
     seg.zonal_distribution = zonal
     seg.mesh_url = mesh_url

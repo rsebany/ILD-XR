@@ -12,8 +12,10 @@ export function useMeshClassPresets() {
   const applyLesionsOnlyPreset = useCallback(
     () =>
       setMeshClassVisibility({
-        ggo: true,
-        reticulation: true,
+        emphysema: true,
+        fibrosis: true,
+        ground_glass: true,
+        micronodules: true,
         consolidation: true,
         lung_shell: false,
       }),
@@ -22,8 +24,10 @@ export function useMeshClassPresets() {
   const applyShellOnlyPreset = useCallback(
     () =>
       setMeshClassVisibility({
-        ggo: false,
-        reticulation: false,
+        emphysema: false,
+        fibrosis: false,
+        ground_glass: false,
+        micronodules: false,
         consolidation: false,
         lung_shell: true,
       }),

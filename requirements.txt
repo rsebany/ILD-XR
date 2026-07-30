@@ -8,6 +8,7 @@ torchaudio==2.6.0
 nibabel
 pydicom>=3.0.1
 SimpleITK>=2.4.1
+lungmask>=0.2.10
 numpy>=2.2.0
 
 # --- Web API & Server ---
@@ -18,6 +19,7 @@ pydantic>=2.10.0
 
 # --- 3D Mesh Generation & Math ---
 scikit-image>=0.25.0
+scikit-learn>=1.5.0
 trimesh[easy]>=4.6.0
 scipy>=1.15.0
 

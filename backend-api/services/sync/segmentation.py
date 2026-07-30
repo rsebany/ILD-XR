@@ -13,9 +13,11 @@ import numpy as np
 
 LABEL_CONTRACT: dict[str, int] = {
     "background": 0,
-    "ggo": 1,
-    "reticulation": 2,
-    "consolidation": 3,
+    "emphysema": 1,
+    "fibrosis": 2,
+    "ground_glass": 3,
+    "micronodules": 4,
+    "consolidation": 5,
 }
 
 __all__ = [

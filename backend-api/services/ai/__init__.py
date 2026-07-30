@@ -1,5 +1,4 @@
-"""3D ILD classification: DICOM → U-Net → metrics / mesh.
-"""
+"""3D ILD classification: DICOM → lungmask + Med3D Softmax → metrics / mesh."""
 from __future__ import annotations
 
 from services.ai.inference import (

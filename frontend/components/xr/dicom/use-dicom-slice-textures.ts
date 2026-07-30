@@ -85,8 +85,9 @@ export function useDicomSliceTextures(studyId: string, maxSlices: number, curren
         if (latestRequestRef.current !== requestId) return;
         setTexture(loaded);
       })
-      .catch(() => {
+      .catch((err) => {
         if (latestRequestRef.current !== requestId) return;
+        console.warn("XR DICOM slice texture failed:", err);
         setTexture(null);
       })
       .finally(() => {

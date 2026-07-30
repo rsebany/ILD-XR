@@ -21,6 +21,7 @@ export type {
   MeshClassKey,
   MeshClassVisibility,
   ThreeViewerProps,
+  ZoneFilter,
 } from "./three-viewer.types";
 export { DEFAULT_MESH_CLASS_VISIBILITY } from "./three-viewer.types";
 
@@ -40,6 +41,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = (props) => {
     comparePrimaryPosition = [-0.38, 0, 0],
     compareSecondaryPosition = [0.38, 0, 0],
     usePlaceholder = false,
+    zoneFilter = "all",
   } = props;
 
   const sceneGroupRef = useRef<THREE.Group | null>(null);
@@ -78,6 +80,7 @@ export const ThreeViewer: React.FC<ThreeViewerProps> = (props) => {
         usePlaceholder={usePlaceholder}
         meshMaterialPreset={layout.meshMaterialPreset}
         resolvedClassVisibility={layout.resolvedClassVisibility}
+        zoneFilter={zoneFilter}
       />
       <FitToSceneGroup
         groupRef={sceneGroupRef}

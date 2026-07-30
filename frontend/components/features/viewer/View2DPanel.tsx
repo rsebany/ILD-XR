@@ -41,6 +41,7 @@ export function View2DPanel() {
   const [windowCenter, setWindowCenter] = useState<number>(WINDOW_PRESETS.lung_ai.center);
   const [windowWidth, setWindowWidth] = useState<number>(WINDOW_PRESETS.lung_ai.width);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [showLungBoundary, setShowLungBoundary] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.7);
   const [orientation, setOrientation] = useState<Orientation>("axial");
   const [sliceIndex, setSliceIndex] = useState(0);
@@ -216,6 +217,8 @@ export function View2DPanel() {
           windowWidth={windowWidth}
           showOverlay={showOverlay}
           setShowOverlay={setShowOverlay}
+          showLungBoundary={showLungBoundary}
+          setShowLungBoundary={setShowLungBoundary}
           overlayOpacity={overlayOpacity}
           setOverlayOpacity={setOverlayOpacity}
           orientation={orientation}

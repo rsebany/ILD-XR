@@ -119,8 +119,10 @@ async def get_study_report_pdf(
         created_at = study.created_at.strftime("%Y-%m-%d %H:%M") if study.created_at else "N/A"
         patient_external_id = study.patient.external_id if study.patient else None
         per_class = [
-            ("GGO", seg.ggo_volume_ml),
-            ("Reticulation", seg.reticulation_volume_ml),
+            ("Emphysema", seg.emphysema_volume_ml),
+            ("Fibrosis", seg.fibrosis_volume_ml),
+            ("Ground Glass", seg.ground_glass_volume_ml),
+            ("Micronodules", seg.micronodules_volume_ml),
             ("Consolidation", seg.consolidation_volume_ml),
         ]
         zonal = seg.zonal_distribution or {}

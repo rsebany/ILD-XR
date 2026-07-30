@@ -36,6 +36,14 @@ from .common import (
     _ensure_study_dicom_dir,
 )
 
+from services.core.paths import (
+    ENCODER_WEIGHTS,
+    HIERARCHICAL_WEIGHTS,
+    MED3D_WEIGHTS,
+    SOFTMAX_WEIGHTS,
+    USE_HIERARCHICAL,
+)
+
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
@@ -63,11 +71,15 @@ def _study_list_item(study: StudyORM) -> StudyListItem:
         acquisition_date=study.created_at.isoformat() if study.created_at else None,
         zonal_distribution=zonal,
         lung_volume_ml=seg.lung_volume_ml if has_seg else None,
-        ggo_volume_ml=seg.ggo_volume_ml if has_seg else None,
-        reticulation_volume_ml=seg.reticulation_volume_ml if has_seg else None,
+        emphysema_volume_ml=seg.emphysema_volume_ml if has_seg else None,
+        fibrosis_volume_ml=seg.fibrosis_volume_ml if has_seg else None,
+        ground_glass_volume_ml=seg.ground_glass_volume_ml if has_seg else None,
+        micronodules_volume_ml=seg.micronodules_volume_ml if has_seg else None,
         consolidation_volume_ml=seg.consolidation_volume_ml if has_seg else None,
-        ggo_burden=seg.ggo_burden if has_seg else None,
-        reticulation_burden=seg.reticulation_burden if has_seg else None,
+        emphysema_burden=seg.emphysema_burden if has_seg else None,
+        fibrosis_burden=seg.fibrosis_burden if has_seg else None,
+        ground_glass_burden=seg.ground_glass_burden if has_seg else None,
+        micronodules_burden=seg.micronodules_burden if has_seg else None,
         consolidation_burden=seg.consolidation_burden if has_seg else None,
     )
 
@@ -79,11 +91,15 @@ def _metrics_from_cache(study_id: str, cached: dict) -> StudyMetrics:
         ild_fraction=cached["ild_fraction"],
         zonal_distribution=cached.get("zonal_distribution", {}),
         lung_volume_ml=cached.get("lung_volume_ml"),
-        ggo_volume_ml=cached.get("ggo_volume_ml"),
-        reticulation_volume_ml=cached.get("reticulation_volume_ml"),
+        emphysema_volume_ml=cached.get("emphysema_volume_ml"),
+        fibrosis_volume_ml=cached.get("fibrosis_volume_ml"),
+        ground_glass_volume_ml=cached.get("ground_glass_volume_ml"),
+        micronodules_volume_ml=cached.get("micronodules_volume_ml"),
         consolidation_volume_ml=cached.get("consolidation_volume_ml"),
-        ggo_burden=cached.get("ggo_burden"),
-        reticulation_burden=cached.get("reticulation_burden"),
+        emphysema_burden=cached.get("emphysema_burden"),
+        fibrosis_burden=cached.get("fibrosis_burden"),
+        ground_glass_burden=cached.get("ground_glass_burden"),
+        micronodules_burden=cached.get("micronodules_burden"),
         consolidation_burden=cached.get("consolidation_burden"),
         ild_burden=cached.get("ild_burden", cached.get("ild_fraction", 0.0)),
     )
@@ -96,24 +112,43 @@ def _metrics_from_segmentation(study_id: str, seg: SegmentationResultORM) -> Stu
         ild_fraction=float(seg.ild_fraction or 0.0),
         zonal_distribution=seg.zonal_distribution or {},
         lung_volume_ml=seg.lung_volume_ml,
-        ggo_volume_ml=seg.ggo_volume_ml,
-        reticulation_volume_ml=seg.reticulation_volume_ml,
+        emphysema_volume_ml=seg.emphysema_volume_ml,
+        fibrosis_volume_ml=seg.fibrosis_volume_ml,
+        ground_glass_volume_ml=seg.ground_glass_volume_ml,
+        micronodules_volume_ml=seg.micronodules_volume_ml,
         consolidation_volume_ml=seg.consolidation_volume_ml,
-        ggo_burden=seg.ggo_burden,
-        reticulation_burden=seg.reticulation_burden,
+        emphysema_burden=seg.emphysema_burden,
+        fibrosis_burden=seg.fibrosis_burden,
+        ground_glass_burden=seg.ground_glass_burden,
+        micronodules_burden=seg.micronodules_burden,
         consolidation_burden=seg.consolidation_burden,
         ild_burden=float(seg.ild_fraction or 0.0),
     )
 
 
 def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
-    mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(study_dicom_dir, WEIGHTS_PATH)
+    cascade_stats: dict = {}
+    mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(
+        study_dicom_dir,
+        WEIGHTS_PATH,
+        encoder_weights=ENCODER_WEIGHTS,
+        softmax_weights=SOFTMAX_WEIGHTS,
+        med3d_weights=MED3D_WEIGHTS,
+        hierarchical_ckpt=HIERARCHICAL_WEIGHTS if USE_HIERARCHICAL else None,
+        cascade_stats=cascade_stats,
+    )
 
     MASK_STORAGE.mkdir(parents=True, exist_ok=True)
     mask_disk_path = MASK_STORAGE / f"{study_id}.npy"
     np.save(mask_disk_path, mask.astype("uint8"))
+    lung_mask_disk = MASK_STORAGE / f"{study_id}_lung.npy"
+    np.save(lung_mask_disk, lung_mask.astype("uint8"))
 
     class_metrics = compute_class_metrics(mask, spacing, lung_mask=lung_mask)
+    if cascade_stats:
+        class_metrics["pathology_fraction"] = float(cascade_stats.get("pathology_fraction", 0.0))
+        class_metrics["mean_ild_prob"] = float(cascade_stats.get("mean_ild_prob", 0.0))
+        class_metrics["patient_binary_ild"] = float(cascade_stats.get("patient_binary_ild", 0))
     total_vol_ml = class_metrics["total_ild_volume_ml"]
     zonal_map = estimate_zonal_distribution(mask)
     mesh_url = generate_mesh_glb(
@@ -130,11 +165,15 @@ def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
         "zonal_distribution": zonal_map,
         "mesh_url": mesh_url,
         "lung_volume_ml": class_metrics["lung_volume_ml"],
-        "ggo_volume_ml": class_metrics["ggo_volume_ml"],
-        "reticulation_volume_ml": class_metrics["reticulation_volume_ml"],
+        "emphysema_volume_ml": class_metrics["emphysema_volume_ml"],
+        "fibrosis_volume_ml": class_metrics["fibrosis_volume_ml"],
+        "ground_glass_volume_ml": class_metrics["ground_glass_volume_ml"],
+        "micronodules_volume_ml": class_metrics["micronodules_volume_ml"],
         "consolidation_volume_ml": class_metrics["consolidation_volume_ml"],
-        "ggo_burden": class_metrics["ggo_burden"],
-        "reticulation_burden": class_metrics["reticulation_burden"],
+        "emphysema_burden": class_metrics["emphysema_burden"],
+        "fibrosis_burden": class_metrics["fibrosis_burden"],
+        "ground_glass_burden": class_metrics["ground_glass_burden"],
+        "micronodules_burden": class_metrics["micronodules_burden"],
         "consolidation_burden": class_metrics["consolidation_burden"],
     }
 
@@ -145,11 +184,15 @@ def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
             seg.total_ild_volume_ml = total_vol_ml
             seg.ild_fraction = ild_burden
             seg.lung_volume_ml = class_metrics["lung_volume_ml"]
-            seg.ggo_volume_ml = class_metrics["ggo_volume_ml"]
-            seg.reticulation_volume_ml = class_metrics["reticulation_volume_ml"]
+            seg.emphysema_volume_ml = class_metrics["emphysema_volume_ml"]
+            seg.fibrosis_volume_ml = class_metrics["fibrosis_volume_ml"]
+            seg.ground_glass_volume_ml = class_metrics["ground_glass_volume_ml"]
+            seg.micronodules_volume_ml = class_metrics["micronodules_volume_ml"]
             seg.consolidation_volume_ml = class_metrics["consolidation_volume_ml"]
-            seg.ggo_burden = class_metrics["ggo_burden"]
-            seg.reticulation_burden = class_metrics["reticulation_burden"]
+            seg.emphysema_burden = class_metrics["emphysema_burden"]
+            seg.fibrosis_burden = class_metrics["fibrosis_burden"]
+            seg.ground_glass_burden = class_metrics["ground_glass_burden"]
+            seg.micronodules_burden = class_metrics["micronodules_burden"]
             seg.consolidation_burden = class_metrics["consolidation_burden"]
             seg.zonal_distribution = zonal_map
             seg.mesh_url = mesh_url
@@ -164,11 +207,15 @@ def _run_ai_on_study(study_id: str, study_dicom_dir: Path) -> StudyMetrics:
         ild_fraction=ild_burden,
         zonal_distribution=zonal_map,
         lung_volume_ml=class_metrics["lung_volume_ml"],
-        ggo_volume_ml=class_metrics["ggo_volume_ml"],
-        reticulation_volume_ml=class_metrics["reticulation_volume_ml"],
+        emphysema_volume_ml=class_metrics["emphysema_volume_ml"],
+        fibrosis_volume_ml=class_metrics["fibrosis_volume_ml"],
+        ground_glass_volume_ml=class_metrics["ground_glass_volume_ml"],
+        micronodules_volume_ml=class_metrics["micronodules_volume_ml"],
         consolidation_volume_ml=class_metrics["consolidation_volume_ml"],
-        ggo_burden=class_metrics["ggo_burden"],
-        reticulation_burden=class_metrics["reticulation_burden"],
+        emphysema_burden=class_metrics["emphysema_burden"],
+        fibrosis_burden=class_metrics["fibrosis_burden"],
+        ground_glass_burden=class_metrics["ground_glass_burden"],
+        micronodules_burden=class_metrics["micronodules_burden"],
         consolidation_burden=class_metrics["consolidation_burden"],
         ild_burden=ild_burden,
     )
@@ -301,7 +348,10 @@ async def run_study_ai_analysis(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Study directory contains no DICOM files",
         )
-    if not WEIGHTS_PATH.is_file():
+    if USE_HIERARCHICAL:
+        if not HIERARCHICAL_WEIGHTS.is_file():
+            raise HTTPException(status_code=500, detail="Hierarchical model weights not found on server")
+    elif not ENCODER_WEIGHTS.is_file() or not SOFTMAX_WEIGHTS.is_file():
         raise HTTPException(status_code=500, detail="Model weights not found on server")
 
     try:

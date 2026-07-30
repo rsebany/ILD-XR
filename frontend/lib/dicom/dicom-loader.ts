@@ -123,10 +123,22 @@ export function drawSliceToCanvas(
 }
 
 /**
+ * Per-class RGBA colors for the 2D segmentation overlay.
+ * 0 = background (transparent), 1 = emphysema, 2 = fibrosis, 3 = ground_glass,
+ * 4 = micronodules, 5 = consolidation.
+ */
+const CLASS_OVERLAY_COLORS: Record<number, [number, number, number, number]> = {
+  1: [43, 119, 255, 180],   // Emphysema — blue
+  2: [255, 140, 0, 180],    // Fibrosis — orange
+  3: [102, 204, 102, 180],  // Ground Glass — green
+  4: [221, 68, 221, 180],   // Micronodules — magenta
+  5: [255, 230, 64, 180],   // Consolidation — yellow
+};
+
+/**
  * Technique 1: Independent Mask Layering
- * Draws a transparent Red mask synced to the DICOM view.
+ * Draws a transparent per-class mask synced to the DICOM view.
  *
- * Color Scheme: Pure Red (255, 0, 0) with 70% alpha for clinical visibility
  * Alignment: Handles resolution mismatches via proportional scaling
  */
 export function drawOverlayToCanvas(
@@ -178,14 +190,14 @@ export function drawOverlayToCanvas(
       const my = Math.floor(yCoord * scaleY);
       const mx = Math.floor(xCoord * scaleX);
 
-      const maskVal = maskSlices[mz]?.[my * mW + mx];
-
-      if (maskVal > 0) {
+      const maskVal = maskSlices[mz]?.[my * mW + mx] ?? 0;
+      const color = CLASS_OVERLAY_COLORS[maskVal];
+      if (color) {
         const pos = (y * outWidth + x) << 2;
-        data[pos] = 255; // Pure Red (R)
-        data[pos + 1] = 0; // (G)
-        data[pos + 2] = 0; // (B)
-        data[pos + 3] = 180; // Alpha (70% opacity)
+        data[pos] = color[0];
+        data[pos + 1] = color[1];
+        data[pos + 2] = color[2];
+        data[pos + 3] = color[3];
         pixelsDrawn++;
       }
     }

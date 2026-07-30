@@ -1,3 +1,5 @@
+import type { MeshClassKey, MeshClassVisibility } from "../experience/types";
+
 export type XrImmersiveToolbarMode = "vr" | "ar";
 export type XrToolbarDock = "right";
 
@@ -6,12 +8,7 @@ export function parseXrToolbarDock(raw: string | null): XrToolbarDock {
   return "right";
 }
 
-export type MeshClassVisibility = {
-  ggo: boolean;
-  reticulation: boolean;
-  consolidation: boolean;
-  lung_shell: boolean;
-};
+export type { MeshClassVisibility };
 
 export type XrBottomToolbarProps = {
   onFocusStack: () => void;

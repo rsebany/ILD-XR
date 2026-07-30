@@ -87,11 +87,15 @@ class SegmentationResult(BaseModel):
     total_ild_volume_ml: float = Field(..., ge=0)
     lung_volume_ml: Optional[float] = Field(default=None, ge=0)
     ild_burden: Optional[float] = Field(default=None, ge=0, le=1)
-    ggo_volume_ml: Optional[float] = Field(default=None, ge=0)
-    reticulation_volume_ml: Optional[float] = Field(default=None, ge=0)
+    emphysema_volume_ml: Optional[float] = Field(default=None, ge=0)
+    fibrosis_volume_ml: Optional[float] = Field(default=None, ge=0)
+    ground_glass_volume_ml: Optional[float] = Field(default=None, ge=0)
+    micronodules_volume_ml: Optional[float] = Field(default=None, ge=0)
     consolidation_volume_ml: Optional[float] = Field(default=None, ge=0)
-    ggo_burden: Optional[float] = Field(default=None, ge=0, le=1)
-    reticulation_burden: Optional[float] = Field(default=None, ge=0, le=1)
+    emphysema_burden: Optional[float] = Field(default=None, ge=0, le=1)
+    fibrosis_burden: Optional[float] = Field(default=None, ge=0, le=1)
+    ground_glass_burden: Optional[float] = Field(default=None, ge=0, le=1)
+    micronodules_burden: Optional[float] = Field(default=None, ge=0, le=1)
     consolidation_burden: Optional[float] = Field(default=None, ge=0, le=1)
     zonal_distribution: Dict[str, float] = Field(default_factory=dict)
     mesh_url: str
@@ -145,11 +149,15 @@ class StudyListItem(BaseModel):
     acquisition_date: Optional[datetime] = None
     zonal_distribution: Dict[str, float] = Field(default_factory=dict)
     lung_volume_ml: Optional[float] = None
-    ggo_volume_ml: Optional[float] = None
-    reticulation_volume_ml: Optional[float] = None
+    emphysema_volume_ml: Optional[float] = None
+    fibrosis_volume_ml: Optional[float] = None
+    ground_glass_volume_ml: Optional[float] = None
+    micronodules_volume_ml: Optional[float] = None
     consolidation_volume_ml: Optional[float] = None
-    ggo_burden: Optional[float] = None
-    reticulation_burden: Optional[float] = None
+    emphysema_burden: Optional[float] = None
+    fibrosis_burden: Optional[float] = None
+    ground_glass_burden: Optional[float] = None
+    micronodules_burden: Optional[float] = None
     consolidation_burden: Optional[float] = None
 
 
@@ -168,11 +176,15 @@ class StudyMetrics(BaseModel):
     ild_fraction: float
     zonal_distribution: Dict[str, float] = Field(default_factory=dict)
     lung_volume_ml: Optional[float] = None
-    ggo_volume_ml: Optional[float] = None
-    reticulation_volume_ml: Optional[float] = None
+    emphysema_volume_ml: Optional[float] = None
+    fibrosis_volume_ml: Optional[float] = None
+    ground_glass_volume_ml: Optional[float] = None
+    micronodules_volume_ml: Optional[float] = None
     consolidation_volume_ml: Optional[float] = None
-    ggo_burden: Optional[float] = None
-    reticulation_burden: Optional[float] = None
+    emphysema_burden: Optional[float] = None
+    fibrosis_burden: Optional[float] = None
+    ground_glass_burden: Optional[float] = None
+    micronodules_burden: Optional[float] = None
     consolidation_burden: Optional[float] = None
     ild_burden: Optional[float] = None
 
@@ -267,9 +279,11 @@ class SegmentationRevisionCreate(BaseModel):
     labels: Dict[str, int] = Field(
         default_factory=lambda: {
             "background": 0,
-            "ggo": 1,
-            "reticulation": 2,
-            "consolidation": 3,
+            "emphysema": 1,
+            "fibrosis": 2,
+            "ground_glass": 3,
+            "micronodules": 4,
+            "consolidation": 5,
         }
     )
     mask_b64: str = Field(..., min_length=4)

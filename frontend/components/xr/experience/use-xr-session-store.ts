@@ -12,7 +12,7 @@ export function useXrSessionStore(
     studyId: string | null;
     meshUrl: string;
     dicomSlice: number;
-    arPerformanceMode: boolean;
+    skipHeavyAssets: boolean;
   },
 ) {
   const sessionMode = mode === "ar" ? "immersive-ar" : "immersive-vr";
@@ -34,12 +34,12 @@ export function useXrSessionStore(
           studyId: opts.studyId,
           meshUrl: opts.meshUrl,
           dicomSlice: opts.dicomSlice,
-          skipHeavyAssets: opts.arPerformanceMode,
+          skipHeavyAssets: opts.skipHeavyAssets,
         }).catch((err) => console.warn("XR preload on session start:", err));
       }
       if (state.session == null) preloadOnSessionRef.current = false;
     });
-  }, [store, opts.studyId, opts.meshUrl, opts.dicomSlice, opts.arPerformanceMode]);
+  }, [store, opts.studyId, opts.meshUrl, opts.dicomSlice, opts.skipHeavyAssets]);
 
   return { store, isPresenting, isImmersiveSupported: supported, isCheckingSupport: isChecking };
 }

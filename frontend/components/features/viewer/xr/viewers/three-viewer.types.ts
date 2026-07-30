@@ -13,13 +13,15 @@ export type DicomContext3D = {
  * `Backend-api/services/inference.py` so the per-class toggle in
  * `View3DReconstructionPanel` lines up with what trimesh exported.
  */
-export type MeshClassKey = "ggo" | "reticulation" | "consolidation" | "lung_shell";
+export type MeshClassKey = "emphysema" | "fibrosis" | "ground_glass" | "micronodules" | "consolidation" | "lung_shell";
 
 export type MeshClassVisibility = Partial<Record<MeshClassKey, boolean>>;
 
 export const DEFAULT_MESH_CLASS_VISIBILITY: Required<MeshClassVisibility> = {
-  ggo: true,
-  reticulation: true,
+  emphysema: true,
+  fibrosis: true,
+  ground_glass: true,
+  micronodules: true,
   consolidation: true,
   lung_shell: true,
 };
@@ -30,12 +32,14 @@ export type MeshVisualPreset =
   | "anatomicalLung"
   | "anatomicalSemi";
 
+export type ZoneFilter = "all" | "upper" | "middle" | "lower";
+
 export type ThreeViewerProps = {
   /** GLTF/GLB URL. Ignored when `usePlaceholder` is true or `showMesh` is false. */
   meshUrl: string;
   /**
    * Optional second GLB (e.g. expert reference) shown beside ``meshUrl`` for comparison.
-   * Same node naming as the primary mesh (ggo / reticulation / consolidation / lung_shell).
+   * Same node naming as the primary mesh (emphysema / fibrosis / ground_glass / micronodules / consolidation / lung_shell).
    */
   compareMeshUrl?: string | null;
   /** World-space offset for the primary mesh when ``compareMeshUrl`` is set. */
@@ -71,4 +75,6 @@ export type ThreeViewerProps = {
    * see `MESH_NODE_NAMES` on the backend). Missing keys default to visible.
    */
   classVisibility?: MeshClassVisibility;
+  /** Craniocaudal zone filter for 3D mesh. "all" shows full volume. */
+  zoneFilter?: ZoneFilter;
 };

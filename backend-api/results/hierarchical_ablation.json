@@ -1,0 +1,233 @@
+{
+  "protocol": "hierarchical_binary_primary_ablation",
+  "notebook": "03_hierarchical_ablation.ipynb",
+  "ablation_full": false,
+  "epochs": 8,
+  "patches": 800,
+  "val_patches": 200,
+  "n_folds_run": 1,
+  "metric_primary": "binary_f1",
+  "factors": {
+    "full_model": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.6143749999999999,
+        "std": 0.0,
+        "values": [
+          0.6143749999999999
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2380952380952381,
+        "std": 0.0,
+        "values": [
+          0.2380952380952381
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.6143749999999999,
+          "hier_macro_f1": 0.2380952380952381,
+          "epoch": 1,
+          "tag": "full_model_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ]
+    },
+    "pretrain_imagenet_inflate": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.41437500000000005,
+        "std": 0.0,
+        "values": [
+          0.41437500000000005
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2601010101010101,
+        "std": 0.0,
+        "values": [
+          0.2601010101010101
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.41437500000000005,
+          "hier_macro_f1": 0.2601010101010101,
+          "epoch": 7,
+          "tag": "pretrain_imagenet_inflate_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ],
+      "delta_binary_f1_vs_full": 0.0
+    },
+    "mixup_off": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.46525,
+        "std": 0.0,
+        "values": [
+          0.46525
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2380952380952381,
+        "std": 0.0,
+        "values": [
+          0.2380952380952381
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.46525,
+          "hier_macro_f1": 0.2380952380952381,
+          "epoch": 1,
+          "tag": "mixup_off_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ],
+      "delta_binary_f1_vs_full": 0.0
+    },
+    "label_smoothing_off": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.586625,
+        "std": 0.0,
+        "values": [
+          0.586625
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2380952380952381,
+        "std": 0.0,
+        "values": [
+          0.2380952380952381
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.586625,
+          "hier_macro_f1": 0.2380952380952381,
+          "epoch": 1,
+          "tag": "label_smoothing_off_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ],
+      "delta_binary_f1_vs_full": 0.0
+    },
+    "se_off": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.444875,
+        "std": 0.0,
+        "values": [
+          0.444875
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2380952380952381,
+        "std": 0.0,
+        "values": [
+          0.2380952380952381
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.444875,
+          "hier_macro_f1": 0.2380952380952381,
+          "epoch": 4,
+          "tag": "se_off_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ],
+      "delta_binary_f1_vs_full": 0.0
+    },
+    "heads_only": {
+      "binary_f1": {
+        "mean": 0.6153846153846154,
+        "std": 0.0,
+        "values": [
+          0.6153846153846154
+        ]
+      },
+      "binary_auc": {
+        "mean": 0.43575,
+        "std": 0.0,
+        "values": [
+          0.43575
+        ]
+      },
+      "hier_macro_f1": {
+        "mean": 0.2380952380952381,
+        "std": 0.0,
+        "values": [
+          0.2380952380952381
+        ]
+      },
+      "runs": [
+        {
+          "binary_f1": 0.6153846153846154,
+          "binary_acc": 0.4444444444444444,
+          "binary_auc": 0.43575,
+          "hier_macro_f1": 0.2380952380952381,
+          "epoch": 3,
+          "tag": "heads_only_f0",
+          "n_train_patches": 800,
+          "n_val_patches": 180,
+          "fold": 0
+        }
+      ],
+      "delta_binary_f1_vs_full": 0.0
+    }
+  }
+}

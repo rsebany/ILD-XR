@@ -12,6 +12,8 @@ type Props = {
   windowWidth: number;
   showOverlay: boolean;
   setShowOverlay: (value: boolean) => void;
+  showLungBoundary: boolean;
+  setShowLungBoundary: (value: boolean) => void;
   overlayOpacity: number;
   setOverlayOpacity: (value: number) => void;
   orientation: "axial" | "coronal" | "sagittal";
@@ -38,6 +40,8 @@ export function View2DPanelCenterColumn({
   windowWidth,
   showOverlay,
   setShowOverlay,
+  showLungBoundary,
+  setShowLungBoundary,
   overlayOpacity,
   setOverlayOpacity,
   orientation,
@@ -71,9 +75,10 @@ export function View2DPanelCenterColumn({
       windowWidth,
       orientation,
       includeOverlay: showOverlay,
+      includeLungBoundary: showLungBoundary,
       overlayOpacity: clampedOverlayAlpha,
     });
-  }, [studyId, safeSliceIndex, windowCenter, windowWidth, orientation, showOverlay, clampedOverlayAlpha]);
+  }, [studyId, safeSliceIndex, windowCenter, windowWidth, orientation, showOverlay, showLungBoundary, clampedOverlayAlpha]);
 
   // Cine-loop for PNG Mode (functional updater so the interval is not recreated every slice)
   useEffect(() => {
@@ -184,6 +189,21 @@ export function View2DPanelCenterColumn({
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
+          <div className="group relative flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-2">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Lung</span>
+              <button
+                onClick={() => setShowLungBoundary(!showLungBoundary)}
+                className={cn(
+                  "relative h-5 w-10 rounded-full transition-all duration-300 ease-in-out",
+                  showLungBoundary ? "bg-cyan-600" : "bg-slate-700"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 h-3 w-3 rounded-full bg-white transition-all duration-300",
+                  showLungBoundary ? "left-6" : "left-1"
+                )} />
+              </button>
+          </div>
           <div className="group relative flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-2">
               <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Overlay</span>
               <button

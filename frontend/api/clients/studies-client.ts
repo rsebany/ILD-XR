@@ -222,6 +222,7 @@ export function getStudySliceUrl(
     windowWidth?: number;
     orientation?: "axial" | "coronal" | "sagittal";
     includeOverlay?: boolean;
+    includeLungBoundary?: boolean;
     overlayOpacity?: number;
   } = {},
 ): string {
@@ -230,6 +231,7 @@ export function getStudySliceUrl(
     window_width: String(options.windowWidth ?? 1500),
     orientation: options.orientation ?? "axial",
     include_overlay: options.includeOverlay ? "true" : "false",
+    include_lung_boundary: options.includeLungBoundary !== false ? "true" : "false",
     denoise: "false",
   });
   if (options.includeOverlay) {

@@ -8,12 +8,11 @@ from typing import Tuple
 
 import numpy as np
 
-# ---------------------------------------------------------------------------
-# Paths & dynamic module loader
-# ---------------------------------------------------------------------------
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_AI_DIR = PROJECT_ROOT / "backend-ai"
+
+if str(BACKEND_AI_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_AI_DIR))
 
 
 def _load_ai_module(rel_path: str, module_name: str):
@@ -25,77 +24,51 @@ def _load_ai_module(rel_path: str, module_name: str):
     return mod
 
 
-# ---------------------------------------------------------------------------
-# backend-ai imports (model, preprocess, postprocess, train)
-# ---------------------------------------------------------------------------
-
-_ai_unet3d = _load_ai_module("models/unet3d.py", "_ai_unet3d")
-UNet3DResidual = _ai_unet3d.UNet3DResidual
 _ai_ct_preprocessing = _load_ai_module(
     "preprocessing/ct_preprocessing.py", "_ai_ct_preprocessing"
 )
 _ai_postprocess = _load_ai_module("utils/postprocess.py", "_ai_postprocess")
-_ai_train_pipeline = _load_ai_module("train_pipeline.py", "_ai_train_pipeline")
-predict_full_volume = getattr(_ai_train_pipeline, "predict_full_volume", None)
-load_trained_model = getattr(_ai_train_pipeline, "load_trained_model", None)
-threshold_predict = getattr(_ai_train_pipeline, "threshold_predict", None)
+_ai_med3d = _load_ai_module("models/med3d_encoder.py", "_ai_med3d")
+_ai_lungmask = _load_ai_module("preprocessing/lungmask_stage1.py", "_ai_lungmask")
 
-# ---------------------------------------------------------------------------
-# Fallbacks when backend-ai modules are unavailable
-# ---------------------------------------------------------------------------
+Med3DPathologyEncoder3D = _ai_med3d.Med3DPathologyEncoder3D
+HierarchicalEncoder3D = _ai_med3d.HierarchicalEncoder3D
+build_softmax_head = _ai_med3d.build_softmax_head
+build_hierarchical_model = _ai_med3d.build_hierarchical_model
+load_encoder_from_checkpoint = _ai_med3d.load_encoder_from_checkpoint
+load_softmax_head_from_checkpoint = _ai_med3d.load_softmax_head_from_checkpoint
+load_hierarchical_checkpoint = _ai_med3d.load_hierarchical_checkpoint
+preprocess_for_softmax = getattr(_ai_lungmask, "preprocess_for_softmax", None)
 
 
 def _fallback_postprocess_mask(mask: np.ndarray, **_kwargs) -> np.ndarray:
     return np.asarray(mask, dtype=np.uint8)
 
 
-def _fallback_add_variance_channel(
-    vol: np.ndarray, radius: int = 3
-) -> np.ndarray:
-    return np.zeros_like(vol, dtype=np.float32)
-
-
-def _fallback_preprocess_volume(
+def _fallback_preprocess_for_softmax(
     volume_zyx: np.ndarray,
     spacing_zyx: Tuple[float, float, float],
     target_spacing: Tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> Tuple[np.ndarray, np.ndarray]:
     hu = np.asarray(volume_zyx, dtype=np.float32)
-    lower, upper = -1350.0, 150.0
-    hu_norm = (np.clip(hu, lower, upper) - lower) / (upper - lower)
-    var_ch = np.zeros_like(hu_norm, dtype=np.float32)
-    stack = np.stack([hu_norm, var_ch], axis=0)
+    hu_norm = (np.clip(hu, -1350.0, 150.0) + 1350.0) / 1500.0
     lung_mask = ((hu >= -1000.0) & (hu <= -200.0)).astype(np.uint8)
-    return stack.astype(np.float32), lung_mask
+    return hu_norm.astype(np.float32), lung_mask
 
 
-def _fallback_threshold_predict(
-    prob_vol_cdhw: np.ndarray,
-    lung_mask: np.ndarray,
-    thresholds: dict,
-) -> np.ndarray:
-    pred = np.argmax(prob_vol_cdhw, axis=0).astype(np.int32)
-    pred[lung_mask < 0.5] = 0
-    return pred
+if preprocess_for_softmax is None:
+    preprocess_for_softmax = _fallback_preprocess_for_softmax
 
-
-add_variance_channel = getattr(
-    _ai_ct_preprocessing, "add_variance_channel", _fallback_add_variance_channel
-)
-preprocess_volume = getattr(
-    _ai_ct_preprocessing, "preprocess_volume", _fallback_preprocess_volume
-)
 postprocess_mask = getattr(_ai_postprocess, "postprocess_mask", _fallback_postprocess_mask)
 
-if threshold_predict is None:
-    threshold_predict = _fallback_threshold_predict
-
 __all__ = [
-    "UNet3DResidual",
-    "add_variance_channel",
-    "load_trained_model",
+    "Med3DPathologyEncoder3D",
+    "HierarchicalEncoder3D",
+    "build_softmax_head",
+    "build_hierarchical_model",
+    "load_encoder_from_checkpoint",
+    "load_softmax_head_from_checkpoint",
+    "load_hierarchical_checkpoint",
+    "preprocess_for_softmax",
     "postprocess_mask",
-    "predict_full_volume",
-    "preprocess_volume",
-    "threshold_predict",
 ]
