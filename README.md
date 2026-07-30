@@ -75,31 +75,6 @@ Override hierarchical path via `ILD_HIERARCHICAL_WEIGHTS`. The API prefers `hier
 and copy into `backend-api/weights/`. See [backend-api/weights/README.md](backend-api/weights/README.md).
 
 
-### Reported metrics (113-patient, patient-disjoint protocol)
-
-On this ~93:7 ILD-prevalent cohort, the **primary metric is patient cascade F1** at the fixed dual-threshold operating point (not overall discrimination). High F1 with near-chance patient ranking is expected under that triage design.
-
-| Metric | Value | Task |
-|--------|-------|------|
-| Binary patient F1 (5-fold CV cascade) | **0.839 ± 0.056** | Primary generalization claim (operating-point) |
-| Binary patient Acc (5-fold CV cascade) | 0.734 ± 0.083 | Primary |
-| Binary patient MCC (5-fold CV cascade) | 0.006 ± 0.153 | Near chance; ranking not claimed |
-| Patch OOF binary F1 (bootstrap) | 0.680 (95% CI 0.614-0.757) | Patch-level |
-| Patch OOF binary AUC | 0.693 (95% CI 0.682-0.705) | Co-reported discriminative metric (patch) |
-| Exploratory patient AUC (mean lung ILD prob.) | ≈0.58 | Near chance; not claimed |
-| Binary patient F1 (Phase 2 deployed) | 0.938 | Full-cohort deployment checkpoint — **not** held-out generalization |
-| Binary patient Acc (Phase 2 deployed) | 0.885 | Deployed (same caveat) |
-| 3-class Hier Macro-F1 (CV patch) | ≈0.155 | Secondary; biomarkers inherit this unreliability |
-| 5-class Path Macro-F1 (CV patch) | ≈0.094 | Tertiary; biomarkers inherit this unreliability |
-| 3-class Hier Macro-F1 (Phase 2) | 0.252 | Secondary (Phase 2 only) |
-| 5-class Path Macro-F1 (Phase 2) | 0.078 | Tertiary (Phase 2 only) |
-| Binary ECE | 0.052 | Calibration |
-
-
-Patient-level binary uses the dual-threshold cascade rule (`pathology_fraction ≥ 0.5%` OR `mean_ild_prob ≥ 0.45`). Voxel pathology maps remain Softmax argmax. No formal significance testing vs prior literature (cohorts/splits differ).
-
-**Limitations:** Single-center MedGIFT (N=113); no external multi-center validation; no prospective reader study. Intended role is triage/monitoring support, not autonomous diagnosis.
-
 See `shared/config/evaluation-metrics.json` and `GET /health`.
 
 ## Requirements
