@@ -2,6 +2,8 @@
 
 **ILD-XR** is a clinical workflow platform for **high-recall ILD triage/screening** on chest CT: DICOM upload, hierarchical AI classification, quantitative review, and WebXR visualization.
 
+![ILD-XR platform](frontend/public/assets/platform.png)
+
 ## Features
 
 - Hierarchical AI triage (lungmask R231 + HierarchicalEncoder3D, 3 Softmax heads)
@@ -148,10 +150,12 @@ ILD-XR/
 ## Citation
 
 ```bibtex
-@article{sebany2026ildxr,
+@misc{sebany2026ildxr,
   title={Patient-Level Hierarchical 3D Deep Learning for ILD Screening with Volumetric Biomarkers},
   author={Sebany, Romualdo and Benbelkacem, Samir and Ykhlef, Hadjer and Ykhlef, Faycal and Masmoudi, Mostefa},
-  year={2026}
+  year={2026},
+  note={Manuscript in preparation},
+  howpublished={\url{https://github.com/rsebany/ILD-XR}}
 }
 ```
 
