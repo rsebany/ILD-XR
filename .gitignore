@@ -35,6 +35,11 @@ Experimentations/local.env
 Experimentations/Results/
 **/checkpoint/
 
+# Per-patient / path-leaking runtime CSVs (aggregate JSON summaries may stay tracked)
+backend-api/results/*_patients.csv
+backend-api/results/*_mask_audit.csv
+backend-api/results/*_biomarker.csv
+
 venv/
 
 # OS / editor junk

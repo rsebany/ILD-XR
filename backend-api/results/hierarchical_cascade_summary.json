@@ -1,6 +1,6 @@
 {
   "protocol": "CT_lungmask_sliding_window_patch_softmax_3D_map_then_classify",
-  "checkpoint": "D:\\Romualdo\\Training\\Results\\models\\phase2_hierarchical_fold_R0F1.pth",
+  "checkpoint": "phase2_hierarchical_fold_R0F1.pth",
   "stride": [
     4,
     8,
