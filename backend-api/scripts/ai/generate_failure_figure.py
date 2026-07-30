@@ -19,21 +19,6 @@ from common.paths import (
     DEFAULT_MED3D_WEIGHTS_PATH,
     DEFAULT_SOFTMAX_WEIGHTS_PATH,
     DEFAULT_WEIGHTS_PATH,
-    PROJECT_ROOT,
-)
-
-_DEFAULT_CT = (
-    PROJECT_ROOT.parent
-    / "data"
-    / "MedGIFT"
-    / "ILD_DB_volumeROIs"
-    / "HRCT_pilot"
-    / "208"
-    / "ct"
-)
-_DEFAULT_ROI = _DEFAULT_CT.parent / "roi_mask"
-_DEFAULT_OUTPUT = (
-    PROJECT_ROOT.parent / "PFE_research" / "figures" / "fig9_failure.png"
 )
 
 
@@ -41,10 +26,29 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate fig9 pathology failure figure (Softmax vs expert ROI GT)."
     )
-    parser.add_argument("--ct-dir", type=Path, default=_DEFAULT_CT)
-    parser.add_argument("--roi-dir", type=Path, default=_DEFAULT_ROI)
-    parser.add_argument("--output", type=Path, default=_DEFAULT_OUTPUT)
-    parser.add_argument("--patient-id", default="208")
+    parser.add_argument(
+        "--ct-dir",
+        type=Path,
+        required=True,
+        help="CT DICOM directory.",
+    )
+    parser.add_argument(
+        "--roi-dir",
+        type=Path,
+        default=None,
+        help="Expert ROI DICOM directory (default: sibling roi_mask next to --ct-dir).",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Output PNG path.",
+    )
+    parser.add_argument(
+        "--patient-id",
+        default=None,
+        help="Optional label for logs only.",
+    )
     parser.add_argument("--weights", type=Path, default=None)
     parser.add_argument(
         "--slices",
@@ -160,7 +164,7 @@ def main() -> int:
     from services.dicom.series_read import read_sorted_dicom_slices
 
     ct_dir = args.ct_dir.resolve()
-    roi_dir = args.roi_dir.resolve()
+    roi_dir = (args.roi_dir or (ct_dir.parent / "roi_mask")).resolve()
     output = args.output.resolve()
     weights_path = (
         args.weights.resolve() if args.weights else DEFAULT_WEIGHTS_PATH
@@ -173,7 +177,8 @@ def main() -> int:
     if not weights_path.is_file():
         raise SystemExit(f"[FAIL] Weights not found: {weights_path}")
 
-    print(f"[INFO] Patient:  {args.patient_id}")
+    if args.patient_id:
+        print(f"[INFO] Patient:  {args.patient_id}")
     print(f"[INFO] CT dir:   {ct_dir}")
     print(f"[INFO] ROI dir:  {roi_dir}")
     print(f"[INFO] Output:   {output}")

@@ -13,7 +13,7 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from common.paths import BACKEND_API_DIR, default_api_base
+from common.paths import default_api_base
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--zip",
         type=Path,
-        default=BACKEND_API_DIR / "tmp" / "118" / "scan_118_download.zip",
+        required=True,
         help="Path to the zip file to upload.",
     )
     parser.add_argument(

@@ -42,6 +42,9 @@ backend-api/results/*_biomarker.csv
 
 venv/
 
+# Logs
+*.log
+
 # OS / editor junk
 .DS_Store
 Thumbs.db

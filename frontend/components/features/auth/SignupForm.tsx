@@ -56,7 +56,7 @@ export function SignupForm({
             value={fullName}
             onChange={(e) => onFullNameChange(e.target.value)}
             className="h-12 w-full rounded-[10px] border border-border bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/60"
-            placeholder="Dr. Romualdo SEBANY"
+            placeholder="Dr. Jane Doe"
           />
         </div>
       </div>
@@ -74,7 +74,7 @@ export function SignupForm({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             className="h-12 w-full rounded-[10px] border border-border bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/60"
-            placeholder="romualdo.sebany@clinic.dz"
+            placeholder="jane.doe@example.com"
           />
         </div>
       </div>

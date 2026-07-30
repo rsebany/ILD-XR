@@ -33,11 +33,11 @@ python scripts/ai/regression_inference.py --check-native-remap --remap-only
 ```bash
 python scripts/ai/parity_check.py \
   --dicom-dir path/to/dicoms \
-  --weights weights/encoder3d_fold0.pth \
+  --weights weights/hierarchical_fold0.pth \
   --reference-mask path/to/ref_mask.npy
 ```
 
-Parity uses checkpoints from `common/paths.py` (prefers `hierarchical_fold{N}.pth`, falls back to `encoder3d_fold{N}.pth` + `softmax3d_fold{N}.pth`).
+Parity uses checkpoints from `common/paths.py` (`hierarchical_fold{N}.pth`).
 
 ## Auth / users
 
@@ -71,7 +71,7 @@ Roles: `radiologist`, `referring_physician`, `admin`. Passwords are never expose
 
 ```bash
 set BEARER_TOKEN=your_jwt
-python scripts/api/upload_smoke_test.py --zip tmp/118/scan_118_download.zip
+python scripts/api/upload_smoke_test.py --zip path/to/sample_study.zip
 ```
 
 **Segmentation sync** (synthetic mask, no auth):
@@ -96,10 +96,8 @@ Use `--urllib` inside Slicer’s Python if `requests` is unavailable.
 
 ## Defaults
 
-- Weights (hierarchical preferred, fold 0 by default):
+- Weights (fold 0 by default):
   - `backend-api/weights/resnet_18.pth`
-  - `backend-api/weights/hierarchical_fold0.pth` (preferred)
-  - `backend-api/weights/encoder3d_fold0.pth` (legacy fallback)
-  - `backend-api/weights/softmax3d_fold0.pth` (legacy fallback)
+  - `backend-api/weights/hierarchical_fold0.pth`
 - Override fold via `ILD_INFER_FOLD` (see `common/paths.py`)
 - API base: `http://127.0.0.1:8000` unless env overrides (see `common/paths.py`)

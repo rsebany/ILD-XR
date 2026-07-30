@@ -14,8 +14,8 @@ Hierarchical training and evaluation notebooks for ILD-XR (MedGIFT).
 ## Required environment
 
 ```bash
-export ILD_MEDGIFT_ROOT=/path/to/ILD_DB_volumeROIs
-export ILD_LUNG_MASK_BASE=/path/to/ILD_DB_lungMasks
+export ILD_MEDGIFT_ROOT=/path/to/medgift_volumes
+export ILD_LUNG_MASK_BASE=/path/to/lung_masks
 export ILD_MODELS_DIR=/path/to/checkpoints
 export ILD_EXPORTS_DIR=/path/to/exports   # optional
 ```
