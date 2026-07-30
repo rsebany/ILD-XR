@@ -26,8 +26,8 @@ export function XRControls() {
     vrButtonRef.current = vrBtn;
 
     const arBtn = ARButton.createButton(gl, {
-      requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay", "local-floor"],
+      // Keep hit-test optional — required hit-test blocks many Android phones.
+      optionalFeatures: ["hit-test", "dom-overlay", "local-floor"],
       domOverlay: { root: container },
     });
     arBtn.style.position = "absolute";

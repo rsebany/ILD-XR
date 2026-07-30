@@ -11,20 +11,22 @@ export function LandingHero() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6 text-5xl font-extrabold text-white md:text-6xl"
       >
-        Advancing ILD Assessment through{" "}
-        <span className="text-sky-400">Volumetric AI</span>
+        <span className="text-sky-400">ILD-XR</span>
+        <span className="mt-3 block text-3xl font-bold tracking-tight md:text-4xl">
+          Patient-level hierarchical 3D ILD screening
+        </span>
       </motion.h1>
       <p className="mb-10 text-lg text-slate-400">
-        A research-driven pipeline integrating 3D deep learning with immersive
-        visualization to reduce cognitive load and enhance diagnostic accuracy in
-        interstitial lung disease.
+        Lungmask preprocessing, a MedicalNet-initialized hierarchical Softmax
+        cascade, volumetric biomarkers, and browser-native WebXR review in one
+        open clinical workflow.
       </p>
       <div className="flex justify-center gap-4">
         <Link
           href="/auth/signup"
           className="rounded-lg bg-primary px-8 py-3 font-semibold text-primary-foreground shadow-[0_4px_18px_rgba(2,132,199,0.35)] transition hover:bg-sky-500"
         >
-          Explore Methodology
+          Enter Platform
         </Link>
       </div>
     </section>

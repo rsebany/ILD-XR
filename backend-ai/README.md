@@ -20,7 +20,7 @@ Place paper-aligned checkpoints at:
 
 ```text
 backend-api/weights/resnet_18.pth                    # Med3D init (required)
-backend-api/weights/hierarchical_fold0.pth            # Phase 2 multi-head checkpoint (all 3 heads, F1=0.938)
+backend-api/weights/hierarchical_fold0.pth            # Phase 2 multi-head deployed full-cohort checkpoint (all 3 heads; F1=0.938 — not CV generalization; primary claim is 5-fold CV cascade F1 0.839 ± 0.056)
 backend-api/weights/encoder3d_fold0.pth               # Legacy fallback (v3.0)
 backend-api/weights/softmax3d_fold0.pth                # Legacy fallback (v3.0)
 ```

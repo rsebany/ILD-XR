@@ -1,4 +1,5 @@
 import type { MeshClassKey, MeshClassVisibility } from "../experience/types";
+import type { WebXrUnsupportedReason } from "@/hooks/xr";
 
 export type XrImmersiveToolbarMode = "vr" | "ar";
 export type XrToolbarDock = "right";
@@ -26,6 +27,7 @@ export type XrBottomToolbarProps = {
   immersiveMode: XrImmersiveToolbarMode;
   isImmersiveSupported: boolean;
   isCheckingSupport?: boolean;
+  unsupportedReason?: WebXrUnsupportedReason | null;
   meshClassVisibility: MeshClassVisibility;
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
   realLungEnabled?: boolean;

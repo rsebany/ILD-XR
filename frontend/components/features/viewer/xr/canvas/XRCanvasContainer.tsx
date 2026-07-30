@@ -26,6 +26,7 @@ export function XRCanvasContainer({
         className="rounded-xl"
         orthographic={false}
         onCreated={({ gl }) => {
+          gl.localClippingEnabled = true;
           if (usePhysicalToneMapping) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 1.15;

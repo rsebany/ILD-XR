@@ -2,35 +2,62 @@
 
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 import { Center, useGLTF } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { applyLungAnatomicalOrientation } from "@/lib/xr/lung-orientation";
 import { tagMeshClassKeys } from "@/lib/xr/resolve-mesh-class-key";
 import type { MeshClassVisibility, MeshVisualPreset, ZoneFilter } from "../three-viewer.types";
 import { applyLungPbrToScene, classKeyOf } from "./lung-pbr";
 
-function getZoneClipPlanes(scene: THREE.Object3D, zone: ZoneFilter): THREE.Plane[] {
+/**
+ * After anatomical orientation, Y is cranio-caudal with apex toward +Y.
+ * Three.js keeps the half-space where normal·point + constant >= 0.
+ */
+function getZoneClipPlanesFromBox(box: THREE.Box3, zone: ZoneFilter): THREE.Plane[] {
   if (zone === "all") return [];
-  const box = new THREE.Box3().setFromObject(scene);
-  const minZ = box.min.z;
-  const maxZ = box.max.z;
-  const range = maxZ - minZ;
-  if (range <= 0) return [];
+  const minY = box.min.y;
+  const maxY = box.max.y;
+  const range = maxY - minY;
+  if (range <= 1e-6) return [];
   const third = range / 3;
-  // In CT space: lower z = apex (upper zone), higher z = base (lower zone)
-  const upperMax = minZ + third;
-  const middleMax = minZ + 2 * third;
+  // Apex (+Y) = upper; base (−Y) = lower
+  const lowerMax = minY + third;
+  const middleMax = minY + 2 * third;
   const planes: THREE.Plane[] = [];
   if (zone === "upper") {
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), -minZ));   // keep z >= minZ
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), upperMax)); // keep z <= upperMax
+    // keep y >= middleMax and y <= maxY
+    planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -middleMax));
+    planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), maxY));
   } else if (zone === "middle") {
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), -upperMax));  // keep z >= upperMax
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), middleMax));   // keep z <= middleMax
+    // keep y >= lowerMax and y <= middleMax
+    planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -lowerMax));
+    planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), middleMax));
   } else if (zone === "lower") {
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), -middleMax)); // keep z >= middleMax
-    planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), maxZ));        // keep z <= maxZ
+    // keep y >= minY and y <= lowerMax
+    planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -minY));
+    planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), lowerMax));
   }
   return planes;
+}
+
+function applyClipPlanesToScene(scene: THREE.Object3D, planes: THREE.Plane[]) {
+  scene.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(child.material)
+      ? (child.material as THREE.Material[])
+      : [child.material as THREE.Material];
+    mats.forEach((m) => {
+      if (
+        m instanceof THREE.MeshStandardMaterial ||
+        m instanceof THREE.MeshPhysicalMaterial
+      ) {
+        m.clippingPlanes = planes;
+        m.clipIntersection = false;
+        m.clipShadows = true;
+        m.needsUpdate = true;
+      }
+    });
+  });
 }
 
 export function GltfMeshNoCamera({
@@ -46,6 +73,7 @@ export function GltfMeshNoCamera({
 }) {
   const { scene } = useGLTF(meshUrl);
   const root = useRef<THREE.Group | null>(null);
+  const { gl } = useThree();
 
   const prepared = useMemo(() => {
     const c = scene.clone();
@@ -53,6 +81,7 @@ export function GltfMeshNoCamera({
       if (o instanceof THREE.Mesh) {
         o.castShadow = true;
         o.receiveShadow = true;
+        if (o.geometry) o.geometry.computeVertexNormals();
       }
     });
     tagMeshClassKeys(c);
@@ -60,6 +89,10 @@ export function GltfMeshNoCamera({
     applyLungPbrToScene(c, visualPreset);
     return c;
   }, [scene, meshUrl, visualPreset]);
+
+  useLayoutEffect(() => {
+    gl.localClippingEnabled = true;
+  }, [gl]);
 
   useLayoutEffect(() => {
     prepared.traverse((child) => {
@@ -70,23 +103,33 @@ export function GltfMeshNoCamera({
     });
   }, [prepared, classVisibility]);
 
-  // Zone clipping
+  // Zone clipping — world-space planes after <Center> has laid out the mesh
   useLayoutEffect(() => {
-    const planes = getZoneClipPlanes(prepared, zoneFilter);
-    prepared.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
-      const mats = Array.isArray(child.material)
-        ? (child.material as THREE.Material[])
-        : [child.material as THREE.Material];
-      mats.forEach((m) => {
-        if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhysicalMaterial) {
-          m.clippingPlanes = planes;
-          m.clipIntersection = false;
-          m.side = THREE.DoubleSide;
-          m.needsUpdate = true;
-        }
-      });
-    });
+    const apply = () => {
+      if (!root.current) {
+        applyClipPlanesToScene(prepared, []);
+        return;
+      }
+      root.current.updateWorldMatrix(true, true);
+      if (zoneFilter === "all") {
+        applyClipPlanesToScene(prepared, []);
+        return;
+      }
+      const box = new THREE.Box3().setFromObject(root.current);
+      if (box.isEmpty()) {
+        applyClipPlanesToScene(prepared, []);
+        return;
+      }
+      applyClipPlanesToScene(prepared, getZoneClipPlanesFromBox(box, zoneFilter));
+    };
+
+    apply();
+    // Center adjusts in its own layout effect; re-apply next frame so world AABB is final
+    const id = requestAnimationFrame(apply);
+    return () => {
+      cancelAnimationFrame(id);
+      applyClipPlanesToScene(prepared, []);
+    };
   }, [prepared, zoneFilter]);
 
   useLayoutEffect(() => {

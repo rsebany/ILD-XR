@@ -52,8 +52,8 @@ export function UploadXrPreviewSection({
               </div>
               <h3 className="text-sm font-bold text-white">No Active Model</h3>
               <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                Reconstruction will appear here once the 3D U-Net segmentation is
-                complete.
+                Reconstruction will appear here once the hierarchical cascade mesh
+                is ready.
               </p>
             </div>
           ) : !meshUrl ? (

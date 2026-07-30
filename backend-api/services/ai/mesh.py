@@ -8,7 +8,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import trimesh
 import trimesh.smoothing
-from scipy.ndimage import binary_closing, binary_dilation, binary_opening
+from scipy.ndimage import binary_closing, binary_dilation, binary_opening, gaussian_filter
 from skimage.measure import marching_cubes
 
 from services.ai.constants import CLASS_LABELS
@@ -23,25 +23,24 @@ MESH_NODE_NAMES: Dict[str, str] = {
     "lung_shell": "lung_shell",
 }
 _MESH_PALETTE: Dict[str, np.ndarray] = {
-    "emphysema": np.array([0, 200, 255, 255], dtype=np.uint8),       # cyan
-    "fibrosis": np.array([255, 165, 0, 255], dtype=np.uint8),        # orange
-    "ground_glass": np.array([0, 200, 170, 255], dtype=np.uint8),    # green
-    "micronodules": np.array([200, 0, 200, 255], dtype=np.uint8),    # magenta
-    "consolidation": np.array([255, 143, 77, 255], dtype=np.uint8),  # yellow-orange
-    "lung_shell": np.array([180, 200, 220, 120], dtype=np.uint8),    # semi-transparent light blue
+    "emphysema": np.array([0, 200, 255, 255], dtype=np.uint8),
+    "fibrosis": np.array([255, 165, 0, 255], dtype=np.uint8),
+    "ground_glass": np.array([0, 200, 170, 255], dtype=np.uint8),
+    "micronodules": np.array([200, 0, 200, 255], dtype=np.uint8),
+    "consolidation": np.array([255, 143, 77, 255], dtype=np.uint8),
+    "lung_shell": np.array([180, 200, 220, 120], dtype=np.uint8),
 }
 
 _SHELL_LESION_DILATE_ITERS = 2
-_MASK_MORPH_ITERS = 1
-_TAUBIN_ITERATIONS = 10
-_DECIMATE_MAX_FACES = 20_000
+_MASK_MORPH_ITERS = 2
+_TAUBIN_ITERATIONS_LUNG = 28
+_TAUBIN_ITERATIONS_LESION = 8
+_DECIMATE_MAX_FACES_LUNG = 70_000
+_DECIMATE_MAX_FACES_LESION = 40_000
+_LUNG_GAUSS_SIGMA = 0.75
 _STRUCT_3 = np.ones((3, 3, 3), dtype=bool)
 
 __all__ = ["MESH_NODE_NAMES", "generate_mesh_glb", "outer_lung_shell_volume"]
-
-# ---------------------------------------------------------------------------
-# Shell volume (lung envelope minus lesions)
-# ---------------------------------------------------------------------------
 
 
 def _morph_binary_mask(mask: np.ndarray, *, close_iters: int = _MASK_MORPH_ITERS) -> np.ndarray:
@@ -52,6 +51,15 @@ def _morph_binary_mask(mask: np.ndarray, *, close_iters: int = _MASK_MORPH_ITERS
     m = binary_closing(m, structure=_STRUCT_3, iterations=close_iters)
     m = binary_opening(m, structure=_STRUCT_3, iterations=1)
     return m
+
+
+def _gaussian_soft_mask(mask: np.ndarray, *, sigma: float = _LUNG_GAUSS_SIGMA) -> np.ndarray:
+    """Soft distance-like blur of a binary mask to reduce MC stair-steps."""
+    m = np.asarray(mask, dtype=np.float32)
+    if sigma <= 0 or not np.any(m):
+        return (m > 0).astype(np.float32)
+    blurred = gaussian_filter(m, sigma=sigma)
+    return blurred.astype(np.float32)
 
 
 def outer_lung_shell_volume(
@@ -76,16 +84,11 @@ def outer_lung_shell_volume(
     return shell.astype(np.float32)
 
 
-# ---------------------------------------------------------------------------
-# Submesh builders
-# ---------------------------------------------------------------------------
-
-
-def _decimate_if_dense(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-    if len(mesh.faces) <= _DECIMATE_MAX_FACES:
+def _decimate_if_dense(mesh: trimesh.Trimesh, *, max_faces: int) -> trimesh.Trimesh:
+    if len(mesh.faces) <= max_faces:
         return mesh
     try:
-        return mesh.simplify_quadric_decimation(_DECIMATE_MAX_FACES)
+        return mesh.simplify_quadric_decimation(max_faces)
     except Exception:
         return mesh
 
@@ -97,12 +100,16 @@ def _build_class_submesh(
     smooth: bool,
     *,
     morph_mask: bool = True,
+    lung_shell: bool = False,
 ) -> Optional[trimesh.Trimesh]:
     vol = np.asarray(binary_mask)
     if morph_mask and vol.size > 0:
         vol = _morph_binary_mask(vol > 0).astype(np.float32)
     elif vol.dtype != np.float32:
         vol = (vol > 0).astype(np.float32)
+
+    if lung_shell and np.any(vol):
+        vol = _gaussian_soft_mask(vol > 0.5, sigma=_LUNG_GAUSS_SIGMA)
 
     if not np.any(vol):
         return None
@@ -114,14 +121,21 @@ def _build_class_submesh(
         return None
 
     mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
-    if smooth:
+    taubin_iters = _TAUBIN_ITERATIONS_LUNG if lung_shell else _TAUBIN_ITERATIONS_LESION
+    max_faces = _DECIMATE_MAX_FACES_LUNG if lung_shell else _DECIMATE_MAX_FACES_LESION
+    if smooth and taubin_iters > 0:
         try:
             trimesh.smoothing.filter_taubin(
-                mesh, lamb=0.5, nu=-0.53, iterations=_TAUBIN_ITERATIONS
+                mesh, lamb=0.5, nu=-0.53, iterations=taubin_iters
             )
         except Exception:
             pass
-    mesh = _decimate_if_dense(mesh)
+    mesh = _decimate_if_dense(mesh, max_faces=max_faces)
+    try:
+        mesh.merge_vertices()
+        mesh.fix_normals()
+    except Exception:
+        pass
 
     vertex_colors = np.tile(color, (mesh.vertices.shape[0], 1)).astype(np.uint8)
     return trimesh.Trimesh(
@@ -146,11 +160,6 @@ def _resolve_lung_bool(
     return None
 
 
-# ---------------------------------------------------------------------------
-# Public GLB export
-# ---------------------------------------------------------------------------
-
-
 def generate_mesh_glb(
     mask: np.ndarray,
     output_dir: Path,
@@ -163,7 +172,6 @@ def generate_mesh_glb(
     output_dir.mkdir(parents=True, exist_ok=True)
     spacing_arr = np.array(spacing, dtype=np.float64)
     has_any_class = bool(np.any(mask))
-    lesion_fg = np.asarray(mask > 0, dtype=bool)
 
     scene = trimesh.Scene()
     contains_geometry = False
@@ -175,8 +183,6 @@ def generate_mesh_glb(
                 spacing_arr,
                 _MESH_PALETTE[name],
                 smooth=True,
-                # Preserve sparse class islands (GGO/reticulation/consolidation):
-                # opening/closing can remove clinically small lesions entirely.
                 morph_mask=False,
             )
             if sub is None:
@@ -195,6 +201,7 @@ def generate_mesh_glb(
                 spacing_arr,
                 _MESH_PALETTE["lung_shell"],
                 smooth=True,
+                lung_shell=True,
             )
             if sub is not None:
                 scene.add_geometry(
@@ -204,15 +211,14 @@ def generate_mesh_glb(
                 )
                 contains_geometry = True
 
-    # Always generate full lung volume mesh for 3D anatomy visualization
     lung_bool = _resolve_lung_bool(mask, lung_mask, volume_hu)
     if lung_bool is not None:
-        # Full lung volume (semi-transparent shell for anatomy context)
         lung_sub = _build_class_submesh(
             lung_bool.astype(np.float32),
             spacing_arr,
             _MESH_PALETTE["lung_shell"],
             smooth=True,
+            lung_shell=True,
         )
         if lung_sub is not None:
             scene.add_geometry(

@@ -2,7 +2,14 @@ import * as THREE from "three";
 
 import type { MeshClassKey } from "@/lib/xr/mesh-class-key";
 
-const CLASS_KEYS: MeshClassKey[] = ["emphysema", "fibrosis", "ground_glass", "micronodules", "consolidation", "lung_shell"];
+const CLASS_KEYS: MeshClassKey[] = [
+  "emphysema",
+  "fibrosis",
+  "ground_glass",
+  "micronodules",
+  "consolidation",
+  "lung_shell",
+];
 
 function nameToClassKey(name: string): MeshClassKey | null {
   const key = name.toLowerCase().trim();

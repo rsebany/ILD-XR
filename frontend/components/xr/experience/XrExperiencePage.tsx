@@ -47,7 +47,9 @@ export function XrExperiencePage({ mode }: Props) {
   const toggleFullscreen = useFullscreen(containerRef);
   const immersive = useImmersiveEntry({
     mode, store: session.store, isImmersiveSupported: session.isImmersiveSupported,
-    isCheckingSupport: session.isCheckingSupport, studyId,
+    isCheckingSupport: session.isCheckingSupport,
+    unsupportedReason: session.unsupportedReason,
+    studyId,
     effectiveMeshUrl: study.effectiveMeshUrl, currentDicomSlice: study.currentDicomSlice,
     onVrSpawn: () => setVrSpawnNonce((v) => v + 1),
   });
@@ -80,6 +82,7 @@ export function XrExperiencePage({ mode }: Props) {
         alternateLabHref={alternateLabHref}
         isImmersiveSupported={session.isImmersiveSupported}
         isCheckingSupport={session.isCheckingSupport}
+        unsupportedReason={session.unsupportedReason}
         meshClassVisibility={presets.meshClassVisibility}
         realLungEnabled={realLungEnabled}
         onFocusStack={() => setFocusStackNonce((v) => v + 1)}
@@ -100,6 +103,7 @@ export function XrExperiencePage({ mode }: Props) {
         store={session.store}
         arPerformanceMode={arPerformanceMode}
         arQuality={arQuality}
+        onExitImmersive={immersive.handleExitImmersive}
         scene={{
           meshUrl: study.effectiveMeshUrl,
           useMeshPlaceholder: study.useMeshPlaceholder,

@@ -110,7 +110,10 @@ export function View2DMetricsPanel({
             <p className="mb-1 text-[10px] font-bold uppercase text-sky-500">
               Inference Engine
             </p>
-            <p className="text-xs font-bold text-foreground">RES-UNET</p>
+            <p className="text-xs font-bold text-foreground">HierarchicalEncoder3D</p>
+            <p className="text-[10px] text-muted-foreground">
+              lungmask + 3 Softmax heads
+            </p>
           </div>
         </div>
       </section>

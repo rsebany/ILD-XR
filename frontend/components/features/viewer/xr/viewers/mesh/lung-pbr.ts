@@ -102,9 +102,6 @@ function buildLungMeshMaterial(
   }
 
   const lungFallback = 0xcc8c84;
-  const sheenR = 0.85;
-  const sheenG = 0.7;
-  const sheenB = 0.68;
   const classColor = lesionKey ? SEGMENTATION_CLASS_COLORS[lesionKey] : undefined;
   const baseColor =
     visualPreset === "segmentationWhite" ? 0xffffff : classColor ?? (hasVc ? 0xffffff : lungFallback);
@@ -118,7 +115,7 @@ function buildLungMeshMaterial(
     clearcoatRoughness: visualPreset === "segmentationWhite" ? 0.9 : 0.45,
     sheen: visualPreset === "segmentationWhite" ? 0.0 : 0.32,
     sheenRoughness: visualPreset === "segmentationWhite" ? 1.0 : 0.55,
-    sheenColor: new THREE.Color(sheenR, sheenG, sheenB),
+    sheenColor: new THREE.Color(0.85, 0.7, 0.68),
     envMapIntensity: visualPreset === "segmentationWhite" ? 0.25 : 1.1,
     transparent: isLungShell,
     opacity: isLungShell ? 0.44 : 1,

@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "dev:https": "next dev --webpack --experimental-https --hostname 0.0.0.0",
+    "dev:phone": "node ./scripts/run-phone-dev.mjs",
+    "certs:phone": "python ./scripts/generate-phone-https-cert.py",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

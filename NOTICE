@@ -1,0 +1,17 @@
+Copyright 2026 Romualdo Sebany and contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---------------------------------------------------------------------------
+Third-party notice (not covered by Apache 2.0):
+
+WebXR environment asset: "Charité University Hospital - Operating Room"
+by ChrisRE (https://sketchfab.com/ChrisRE)
+https://sketchfab.com/3d-models/charite-university-hospital-operating-room-9ec46c4d615a4581a235eebfb162f574
+Licensed under CC BY-NC 4.0 (http://creativecommons.org/licenses/by-nc/4.0/).
+Used for non-commercial research demonstration only.
+See frontend/public/xr/backgrounds/hospital/license.txt

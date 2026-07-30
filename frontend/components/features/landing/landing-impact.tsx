@@ -6,7 +6,7 @@ export function LandingImpact() {
   return (
     <section className="mx-auto mt-24 max-w-6xl rounded-3xl border border-white/5 bg-white/5 px-6 py-16">
       <h2 className="mb-10 text-center text-2xl font-bold text-white">
-        Clinical Impact
+        What ILD-XR Delivers
       </h2>
       <div className="grid gap-8 md:grid-cols-3">
         {RESEARCH_PILLARS.map((pillar) => (

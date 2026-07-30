@@ -31,7 +31,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ILD-XR",
   description:
-    "AI-powered lung disease analysis platform with WebXR visualization.",
+    "Patient-level hierarchical 3D ILD screening with volumetric biomarkers and browser-native WebXR review.",
   icons: {
     icon: "/assets/logo.png",
   },
@@ -44,6 +44,7 @@ export const viewport: Viewport = {
   themeColor: "#05070a",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 // ---------------------------------------------------------------------------

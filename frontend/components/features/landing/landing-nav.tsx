@@ -21,7 +21,7 @@ export function LandingNav() {
           href="/auth/signup"
           className="text-sm font-medium text-muted-foreground transition hover:text-sky-400"
         >
-          View Technical Portfolio
+          Enter Platform
         </Link>
       </div>
     </nav>

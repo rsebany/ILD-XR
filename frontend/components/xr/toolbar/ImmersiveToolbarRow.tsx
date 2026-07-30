@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { webXrUnsupportedMessage, type WebXrUnsupportedReason } from "@/hooks/xr";
 import type { XrImmersiveToolbarMode } from "./types";
 
 type Props = {
@@ -73,26 +74,21 @@ export function ImmersiveUnsupportedNote({
   immersiveMode,
   isImmersiveSupported,
   isCheckingSupport,
+  unsupportedReason = null,
 }: {
   immersiveMode: XrImmersiveToolbarMode;
   isImmersiveSupported: boolean;
   isCheckingSupport?: boolean;
+  unsupportedReason?: WebXrUnsupportedReason | null;
 }) {
   if (isImmersiveSupported) return null;
+  const detail = webXrUnsupportedMessage(immersiveMode, unsupportedReason);
   return (
     <p
-      className="max-w-[14rem] text-center text-[10px] leading-snug text-amber-400/90"
-      title={
-        immersiveMode === "ar"
-          ? "AR needs an AR-capable Android Chrome browser and HTTPS."
-          : "Connect a WebXR headset or use desktop view."
-      }
+      className="max-w-[16rem] text-center text-[10px] leading-snug text-amber-400/90"
+      title={detail}
     >
-      {isCheckingSupport
-        ? "Checking XR support…"
-        : immersiveMode === "ar"
-          ? "AR not available on this browser. Open on an AR-capable Android phone over HTTPS, or switch to VR."
-          : "Immersive not available in this browser."}
+      {isCheckingSupport ? "Checking XR support…" : detail}
     </p>
   );
 }

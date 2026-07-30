@@ -2,7 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { Canvas } from "@react-three/fiber";
-import { XR, type XRStore } from "@react-three/xr";
+import { XR, XRDomOverlay, type XRStore } from "@react-three/xr";
 import * as THREE from "three";
 import { XrLocomotionRig } from "../locomotion";
 import { XRSceneContent } from "../scene";
@@ -43,10 +43,18 @@ type Props = {
   store: XRStore;
   arPerformanceMode: boolean;
   arQuality: ArQualityPreset;
+  onExitImmersive: () => void;
   scene: SceneProps;
 };
 
-export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, scene }: Props) {
+export function XrExperienceCanvas({
+  mode,
+  store,
+  arPerformanceMode,
+  arQuality,
+  onExitImmersive,
+  scene,
+}: Props) {
   const {
     meshUrl, useMeshPlaceholder, realLungEnabled, onToggleRealLung, studyId, dicomSliceCount, currentDicomSlice,
     setCurrentDicomSlice, focusStackNonce, focusMeshNonce, focusBalancedNonce, meshScale,
@@ -107,6 +115,27 @@ export function XrExperienceCanvas({ mode, store, arPerformanceMode, arQuality, 
             onPauseDicomPlay={pauseDicomPlayback}
             vrSpawnNonce={vrSpawnNonce}
           />
+          {mode === "ar" ? (
+            <XRDomOverlay
+              style={{
+                position: "fixed",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: 40,
+              }}
+            >
+              <div className="pointer-events-auto absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))]">
+                <button
+                  type="button"
+                  onClick={onExitImmersive}
+                  className="rounded-full border border-white/25 bg-slate-950/85 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur-md"
+                  aria-label="Exit AR"
+                >
+                  Exit AR
+                </button>
+              </div>
+            </XRDomOverlay>
+          ) : null}
         </XR>
       </Canvas>
     </div>

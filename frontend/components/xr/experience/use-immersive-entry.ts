@@ -3,6 +3,10 @@
 import { useCallback, useState } from "react";
 import type { XRStore } from "@react-three/xr";
 import { preloadXrSessionAssets } from "../preload";
+import {
+  webXrUnsupportedMessage,
+  type WebXrUnsupportedReason,
+} from "@/hooks/xr";
 import type { XrExperienceMode } from "./types";
 
 type Args = {
@@ -10,6 +14,7 @@ type Args = {
   store: XRStore;
   isImmersiveSupported: boolean;
   isCheckingSupport: boolean;
+  unsupportedReason?: WebXrUnsupportedReason | null;
   studyId: string | null;
   effectiveMeshUrl: string;
   currentDicomSlice: number;
@@ -21,6 +26,7 @@ export function useImmersiveEntry({
   store,
   isImmersiveSupported,
   isCheckingSupport,
+  unsupportedReason = null,
   studyId,
   effectiveMeshUrl,
   currentDicomSlice,
@@ -37,11 +43,7 @@ export function useImmersiveEntry({
         return;
       }
       if (!isImmersiveSupported) {
-        setXrError(
-          mode === "ar"
-            ? "AR is not available on this browser. Open the app on an AR-capable Android Chrome device over HTTPS, or switch to VR."
-            : "VR is not available on this browser. Use a compatible WebXR headset or open the desktop 3D view.",
-        );
+        setXrError(webXrUnsupportedMessage(mode, unsupportedReason));
         return;
       }
 
@@ -71,12 +73,16 @@ export function useImmersiveEntry({
       if (
         message.includes("NotSupportedError") ||
         message.includes("XRSession") ||
-        message.includes("XRWebGLBinding")
+        message.includes("XRWebGLBinding") ||
+        message.includes("not supported")
       ) {
         message =
           mode === "ar"
-            ? "AR session configuration is not supported on this phone/browser. Use Android Chrome over HTTPS on an ARCore-capable device, or switch to VR."
+            ? "AR session failed on this phone/browser. Use Android Chrome over HTTPS on an ARCore device (camera permission allowed), or switch to VR."
             : "No VR headset detected. Please connect a compatible WebXR device (e.g., Meta Quest, HTC Vive) or use desktop 3D view.";
+      }
+      if (message.includes("secure") || unsupportedReason === "insecure-context") {
+        message = webXrUnsupportedMessage(mode, "insecure-context");
       }
       setXrError(message);
     }
@@ -85,6 +91,7 @@ export function useImmersiveEntry({
     store,
     isImmersiveSupported,
     isCheckingSupport,
+    unsupportedReason,
     studyId,
     effectiveMeshUrl,
     currentDicomSlice,

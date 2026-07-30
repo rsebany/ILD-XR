@@ -6,11 +6,11 @@ platform for interstitial lung disease (ILD) on chest CT.
 ## Before you start
 
 - Read the [README](README.md) for architecture, setup, and credits.
-- This project is released under the [CC BY-NC 4.0](LICENSE) license: **no
-  commercial use** and **attribution to Romualdo SEBANY** is required when the
-  software or derivatives are used or shared.
-- Third-party assets (3D models, datasets, UI rasters) may have their own
-  licenses — see [Credits & acknowledgments](README.md#credits--acknowledgments)
+- This project is released under the [Apache License 2.0](LICENSE) (see [NOTICE](NOTICE)).
+  The WebXR hospital OR background is a separate [CC BY-NC 4.0](http://creativecommons.org/licenses/by-nc/4.0/)
+  third-party asset (non-commercial research demo only) — see [Credits](README.md#credits).
+- Other third-party assets (datasets, UI rasters) may have their own
+  licenses — see [Credits](README.md#credits)
   in the README.
 
 ## Ways to contribute
@@ -64,6 +64,6 @@ For questions about the project or licensing, contact:
 ## License of contributions
 
 By contributing, you agree that your contributions will be licensed under the
-same [CC BY-NC 4.0](LICENSE) terms as the rest of the project, with copyright
+same [Apache License 2.0](LICENSE) terms as the rest of the project, with copyright
 retained by you for your original work and the project maintaining attribution
 to all contributors as appropriate.

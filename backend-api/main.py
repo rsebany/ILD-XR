@@ -178,8 +178,10 @@ async def health_check() -> dict:
             "api_bind": f"{API_HOST}:{API_PORT}",
             "api_base_url_for_headset": _lan_api_base_url(),
             "hint": (
-                "On Quest, point NEXT_PUBLIC_API_BASE_URL to this PC’s LAN address; "
-                "keep phone and PC on the same network."
+                "Quest: LAN http://<PC-IP>:3000 is fine. "
+                "Phone AR (Android Chrome): use HTTPS (ngrok/cloudflare or npm run dev:phone); "
+                "set NEXT_PUBLIC_API_BASE_URL=/api for single-tunnel mode. "
+                "iOS Safari has no WebXR AR."
             ),
         },
         "slicer": {

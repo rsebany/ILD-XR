@@ -4,6 +4,7 @@ import { XrBottomToolbar } from "../toolbar";
 import { XrImmersiveHud, XrLabHeader, XrMetricsPanel, XrStatusOverlays } from "../chrome";
 import { SegmentationClassLegend } from "@/components/features/viewer/ui/SegmentationClassLegend";
 import type { StudyMetrics } from "@/api/domain";
+import type { WebXrUnsupportedReason } from "@/hooks/xr";
 import type { MeshClassVisibility, XrExperienceMode } from "./types";
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
   alternateLabHref: string;
   isImmersiveSupported: boolean;
   isCheckingSupport: boolean;
+  unsupportedReason?: WebXrUnsupportedReason | null;
   meshClassVisibility: MeshClassVisibility;
   realLungEnabled: boolean;
   onFocusStack: () => void;
@@ -40,6 +42,7 @@ export function XrExperienceChrome(props: Props) {
   const {
     mode, isPresenting, studyId, syncConnected, metrics, xrError, meshError, isLoading,
     preparingImmersive, onExitImmersive, alternateLabHref, isImmersiveSupported, isCheckingSupport,
+    unsupportedReason = null,
     meshClassVisibility, realLungEnabled, onFocusStack, onFocusMesh, onBalancedView, onZoomIn,
     onZoomOut, onPresetAll, onPresetLesions, onPresetShell, onToggleMeshClass, onToggleRealLung,
     onEnterImmersive, onToggleFullscreen,
@@ -59,7 +62,8 @@ export function XrExperienceChrome(props: Props) {
         </div>
       )}
       <XrStatusOverlays xrError={xrError} meshError={meshError} isLoading={isLoading} studyId={studyId} />
-      {isPresenting && <XrImmersiveHud mode={mode} onExit={onExitImmersive} />}
+      {/* Phone AR Exit lives in XRDomOverlay inside the canvas; keep page HUD for VR/desktop. */}
+      {isPresenting && mode !== "ar" && <XrImmersiveHud mode={mode} onExit={onExitImmersive} />}
       {preparingImmersive && !isPresenting && (
         <div className="pointer-events-none absolute inset-x-0 bottom-28 z-30 flex justify-center">
           <p className="rounded-full border border-cyan-500/40 bg-black/70 px-3 py-1 text-[11px] font-medium text-cyan-200">
@@ -88,6 +92,7 @@ export function XrExperienceChrome(props: Props) {
           immersiveMode={mode}
           isImmersiveSupported={isImmersiveSupported}
           isCheckingSupport={isCheckingSupport}
+          unsupportedReason={unsupportedReason}
         />
       )}
     </>

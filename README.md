@@ -377,7 +377,3 @@ This project uses the multimedia ILD collection from the **University Hospitals 
 
 - Depeursinge *et al.*, [*Building a reference multimedia database for interstitial lung diseases*](https://www.sciencedirect.com/science/article/abs/pii/S0895611111001017), *Computerized Medical Imaging and Graphics*, 2012
 - Access: [ILD database information page](https://medgift.hevs.ch/wordpress/databases/ild-database)
-
-
-#   I L D - X R  
- 

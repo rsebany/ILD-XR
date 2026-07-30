@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
     buildActivity: false,
     appIsrStatus: false,
   } as NextConfig["devIndicators"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // Allow WebXR + camera for phone AR (Android Chrome) and Quest.
+          {
+            key: "Permissions-Policy",
+            value: "xr-spatial-tracking=(self), camera=(self), microphone=()",
+          },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       { source: "/upload", destination: "/upload-dicom", permanent: true },

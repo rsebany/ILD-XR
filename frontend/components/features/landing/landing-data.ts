@@ -1,37 +1,42 @@
 export const WORKFLOW_STEPS = [
   {
     step: "01",
-    title: "Data Ingestion",
-    label: "Automated preprocessing of DICOM volumetric data.",
+    title: "Lung Preprocessing",
+    label: "Stage 1: fixed lungmask R231 extracts lung fields from HU-normalized HRCT.",
   },
   {
     step: "02",
-    title: "AI Segmentation",
-    label: "3D Residual U-Net inference for lesion quantification.",
+    title: "Hierarchical 3D Encoder",
+    label: "Stage 2: MedicalNet-initialized ResNet-18 with SE blocks shares 512-dim features.",
   },
   {
     step: "03",
-    title: "Spatial Analysis",
-    label: "Interactive WebXR-based radiological review.",
+    title: "Softmax Heads",
+    label: "Binary screening (primary); 3-class and 5-class heads for pattern attribution.",
   },
   {
     step: "04",
-    title: "Clinical Reporting",
-    label: "Structured diagnostic outputs for longitudinal tracking.",
+    title: "Patient Cascade",
+    label: "Dual-threshold aggregation lifts patch Softmax votes to a patient-level decision.",
+  },
+  {
+    step: "05",
+    title: "Biomarkers and Review",
+    label: "Volumes, burden, and zones plus 2D overlays, 3D meshes, and browser WebXR.",
   },
 ] as const;
 
 export const RESEARCH_PILLARS = [
   {
-    title: "Clinical Precision",
-    hint: "Validated multi-class segmentation models.",
+    title: "Patient-level screening",
+    hint: "Binary Normal vs Any-ILD is the primary clinical claim under patient-disjoint evaluation.",
   },
   {
-    title: "Explainability",
-    hint: "Interactive 3D visualization for human oversight.",
+    title: "Pattern-attributed biomarkers",
+    hint: "Hierarchical heads attribute fibrotic burden and per-class volumes—not standalone multi-class diagnosis.",
   },
   {
-    title: "Workflow Integration",
-    hint: "Streamlined diagnostic support for ILD.",
+    title: "Open WebXR review",
+    hint: "The same outputs open in 2D, 3D, and browser-native WebXR on standard hardware.",
   },
 ] as const;

@@ -1,5 +1,5 @@
 /**
- * Public landing page — research positioning, pipeline overview, and sign-up CTAs.
+ * Public landing page — hierarchical pipeline overview and platform CTA.
  */
 "use client";
 

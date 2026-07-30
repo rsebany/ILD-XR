@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { studyService, type DicomVolumeShape } from "@/services/study";
+import { studyService } from "@/services/study";
 import {
   ThreeViewer,
   DEFAULT_MESH_CLASS_VISIBILITY,
@@ -14,7 +14,7 @@ import {
   type MeshClassVisibility,
   type ZoneFilter,
 } from "@/components/features/viewer/xr/viewers/ThreeViewer";
-import { imagingContextFromSearchParams, imagingContextQuery } from "@/lib/imaging";
+import { imagingContextFromSearchParams } from "@/lib/imaging";
 import { buildSegmentationMetricGroups } from "@/lib/metrics/segmentation-metric-groups";
 import { useVolumeDisplayUnit } from "@/hooks/settings";
 import { useStudyMetrics } from "@/hooks/studies";
@@ -45,11 +45,8 @@ export function View3DReconstructionPanel() {
   const meshFallback = searchParams.get("mesh");
 
   const studyId = useResolvedStudyId({ studyIdParam, patientId });
-  const ctx = imagingContextQuery({ patientId, studyId: studyId || null });
 
   const [windowPreset, setWindowPreset] = useState<WindowPresetKey>("lung_ai");
-  const [windowCenter, setWindowCenter] = useState<number>(WINDOW_PRESETS.lung_ai.center);
-  const [windowWidth, setWindowWidth] = useState<number>(WINDOW_PRESETS.lung_ai.width);
   const [orientation, setOrientation] = useState<Orientation>("axial");
   const [viewerMode] = useState<"png">("png");
   const [reanalyzeLoading, setReanalyzeLoading] = useState(false);
@@ -61,12 +58,10 @@ export function View3DReconstructionPanel() {
   const [classVisibility, setClassVisibility] = useState<Required<MeshClassVisibility>>(
     DEFAULT_MESH_CLASS_VISIBILITY,
   );
-  const [showCtVolume, setShowCtVolume] = useState(false);
   const [flipVertical, setFlipVertical] = useState(false);
-  const [lungRenderMode, setLungRenderMode] = useState<LungRenderMode>("semi");
+  /** Prefer anatomical “Real lung” look by default. */
+  const [lungRenderMode, setLungRenderMode] = useState<LungRenderMode>("real");
   const [zoneFilter, setZoneFilter] = useState<ZoneFilter>("all");
-  const [volumeShape, setVolumeShape] = useState<DicomVolumeShape | null>(null);
-  const [volumeShapeLoading, setVolumeShapeLoading] = useState(false);
 
   const toggleClass = (key: MeshClassKey) =>
     setClassVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -111,30 +106,6 @@ export function View3DReconstructionPanel() {
   }, [studyId]);
 
   useEffect(() => {
-    if (!studyId) {
-      setVolumeShape(null);
-      setShowCtVolume(false);
-      return;
-    }
-    let cancelled = false;
-    setVolumeShapeLoading(true);
-    studyService
-      .getDicomVolumeShape(studyId)
-      .then((shape) => {
-        if (!cancelled) setVolumeShape(shape);
-      })
-      .catch(() => {
-        if (!cancelled) setVolumeShape(null);
-      })
-      .finally(() => {
-        if (!cancelled) setVolumeShapeLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [studyId]);
-
-  useEffect(() => {
     if (hasSegmentationMesh) {
       setShowAiMesh(true);
     } else {
@@ -154,30 +125,6 @@ export function View3DReconstructionPanel() {
   const showMeshInViewer = showAiMesh && hasSegmentationMesh;
   const meshUrlForViewer = (meshUrl || meshFallback || "").trim();
 
-  const axialCount = volumeShape?.depth ?? 0;
-  const dicomContext3d =
-    showCtVolume && studyId && axialCount > 0
-      ? {
-          studyId,
-          maxSlices: axialCount,
-          currentSlice: Math.floor(axialCount / 2),
-        }
-      : null;
-  const dicomSpacingMm = volumeShape
-    ? {
-        z: volumeShape.spacing_z_mm,
-        y: volumeShape.spacing_y_mm,
-        x: volumeShape.spacing_x_mm,
-      }
-    : null;
-  const dicomVoxelCount = volumeShape
-    ? {
-        depth: volumeShape.depth,
-        height: volumeShape.height,
-        width: volumeShape.width,
-      }
-    : null;
-  const canShowCtVolume = Boolean(studyId && axialCount > 0);
   const meshVisualPreset =
     lungRenderMode === "real" ? "anatomicalLung" : "anatomicalSemi";
 
@@ -239,10 +186,8 @@ export function View3DReconstructionPanel() {
           studyLine={studyLine}
           windowPreset={windowPreset}
           orientation={orientation}
-          onWindowPresetChange={(key, center, width) => {
+          onWindowPresetChange={(key) => {
             setWindowPreset(key as WindowPresetKey);
-            setWindowCenter(center);
-            setWindowWidth(width);
           }}
           onOrientationChange={setOrientation}
           onResetSliceIndex={() => {}}
@@ -259,28 +204,6 @@ export function View3DReconstructionPanel() {
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <div
                 className={`flex shrink-0 items-center gap-3 rounded-xl border border-ild-border bg-ild-card px-3 py-2 ${
-                  !canShowCtVolume ? "opacity-50" : ""
-                }`}
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-medium text-foreground">3D CT volume</span>
-                  <span className="text-xs text-muted-foreground">
-                    {volumeShapeLoading
-                      ? "Loading shape…"
-                      : canShowCtVolume
-                        ? "Axial stack with lung-true proportions"
-                        : "Needs DICOM on server"}
-                  </span>
-                </div>
-                <Switch
-                  checked={showCtVolume}
-                  onCheckedChange={setShowCtVolume}
-                  disabled={!canShowCtVolume || volumeShapeLoading}
-                  aria-label="Show 3D CT volume stack"
-                />
-              </div>
-              <div
-                className={`flex shrink-0 items-center gap-3 rounded-xl border border-ild-border bg-ild-card px-3 py-2 ${
                   !studyId ? "opacity-50" : ""
                 }`}
               >
@@ -290,7 +213,7 @@ export function View3DReconstructionPanel() {
                     {loading
                       ? "Checking mesh…"
                       : hasSegmentationMesh
-                        ? "GLB from segmentation"
+                        ? "GLB from hierarchical cascade"
                         : "Run AI analysis (right) to enable"}
                   </span>
                 </div>
@@ -357,11 +280,6 @@ export function View3DReconstructionPanel() {
               visualPreset={meshVisualPreset}
               classVisibility={classVisibility}
               zoneFilter={zoneFilter}
-              dicomContext={dicomContext3d}
-              dicomSpacingMm={dicomSpacingMm}
-              dicomVoxelCount={dicomVoxelCount}
-              dicomIncludeOverlay={false}
-              dicomMaxStackSlices={160}
               flipVertical={flipVertical}
               onFlipVertical={() => setFlipVertical((v) => !v)}
             />
@@ -433,11 +351,11 @@ function ClassVisibilityToggles({
   );
 }
 
-const ZONE_META: Record<ZoneFilter, { label: string; icon: string }> = {
-  all: { label: "All Zones", icon: "⬛" },
-  upper: { label: "Upper", icon: "🔼" },
-  middle: { label: "Middle", icon: "◾" },
-  lower: { label: "Lower", icon: "🔽" },
+const ZONE_META: Record<ZoneFilter, { label: string }> = {
+  all: { label: "All Zones" },
+  upper: { label: "Upper" },
+  middle: { label: "Middle" },
+  lower: { label: "Lower" },
 };
 
 function ZoneFilterToggles({

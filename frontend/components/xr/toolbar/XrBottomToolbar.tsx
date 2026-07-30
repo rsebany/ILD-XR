@@ -24,6 +24,7 @@ export function XrBottomToolbar({
   immersiveMode,
   isImmersiveSupported,
   isCheckingSupport = false,
+  unsupportedReason = null,
   meshClassVisibility,
   onToggleMeshClass,
   realLungEnabled = false,
@@ -59,6 +60,7 @@ export function XrBottomToolbar({
         immersiveMode={immersiveMode}
         isImmersiveSupported={isImmersiveSupported}
         isCheckingSupport={isCheckingSupport}
+        unsupportedReason={unsupportedReason}
       />
     </div>
   );
