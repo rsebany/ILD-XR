@@ -16,6 +16,7 @@ import type {
   ExpertMaskCompareResponse,
   StudyListItem,
   StudyMetrics,
+  UploadJobStatus,
   UploadStudyPatientPayload,
   UploadStudyResponse,
 } from "../domain";
@@ -137,10 +138,42 @@ export async function getStudyReportPdf(studyId: string): Promise<Blob> {
 // Upload
 // ---------------------------------------------------------------------------
 
+export async function getUploadJobStatus(jobId: string): Promise<UploadJobStatus> {
+  return apiFetch<UploadJobStatus>(
+    joinRoute(ROUTES.studies, "upload", "jobs", jobId),
+    { method: "GET" },
+  );
+}
+
+async function waitForUploadJob(
+  jobId: string,
+  onProgress?: (job: UploadJobStatus) => void,
+): Promise<UploadStudyResponse> {
+  const pollMs = 2000;
+  const maxWaitMs = 3 * 60 * 60 * 1000; // 3h Softmax-friendly
+  const started = Date.now();
+  while (Date.now() - started < maxWaitMs) {
+    const job = await getUploadJobStatus(jobId);
+    onProgress?.(job);
+    if (job.status === "done") {
+      if (!job.result) {
+        throw new Error("Analysis finished but no result was returned.");
+      }
+      return job.result;
+    }
+    if (job.status === "failed") {
+      throw new Error(job.error || "AI analysis failed.");
+    }
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  throw new Error("AI analysis timed out. Check the API logs and try again.");
+}
+
 export async function uploadStudy(
   patient: UploadStudyPatientPayload,
   files: File[],
   studyDescription?: string,
+  onProgress?: (job: UploadJobStatus) => void,
 ): Promise<UploadStudyResponse> {
   if (!files.length) {
     throw new Error("No imaging files provided for analysis.");
@@ -161,12 +194,28 @@ export async function uploadStudy(
   if (studyDescription) {
     formData.append("study_description", studyDescription);
   }
+  // Softmax runs in a background job so this POST returns after DICOM ingest.
+  formData.append("async_analysis", "true");
 
-  return apiFetch<UploadStudyResponse>(joinRoute(ROUTES.studies, "upload"), {
-    method: "POST",
-    body: formData,
-    jsonBody: false,
-  });
+  const accepted = await apiFetch<UploadJobStatus | UploadStudyResponse>(
+    joinRoute(ROUTES.studies, "upload"),
+    {
+      method: "POST",
+      body: formData,
+      jsonBody: false,
+    },
+  );
+
+  if (accepted && typeof accepted === "object" && "study_id" in accepted && "patient" in accepted) {
+    return accepted as UploadStudyResponse;
+  }
+
+  const job = accepted as UploadJobStatus;
+  if (!job?.job_id) {
+    throw new Error("Upload did not return a job id or study result.");
+  }
+  onProgress?.(job);
+  return waitForUploadJob(job.job_id, onProgress);
 }
 
 // ---------------------------------------------------------------------------

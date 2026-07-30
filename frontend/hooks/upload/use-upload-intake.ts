@@ -272,12 +272,23 @@ export function useUploadIntake() {
 
       await new Promise((r) => setTimeout(r, 300));
       stopProgressTicker();
-      startProgressTicker(32, 88, "Running AI…", 650);
+      startProgressTicker(32, 50, "Uploading…", 400);
 
       const data = await uploadStudyService.uploadStudy({
         patient: patientPayload,
         files: filesToSend,
         description: studyDescription || "Automated ILD Analysis",
+        onProgress: (job) => {
+          stopProgressTicker();
+          const pct = Math.min(
+            88,
+            Math.max(32, Math.round(Number(job.progress) || 32)),
+          );
+          setUploadProgress({
+            step: job.step || "Running AI…",
+            percentage: pct,
+          });
+        },
       });
 
       stopProgressTicker();

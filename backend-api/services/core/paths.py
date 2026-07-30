@@ -25,7 +25,7 @@ SOFTMAX_WEIGHTS = Path(
     os.environ.get("ILD_SOFTMAX_WEIGHTS", str(BASE_DIR / "weights" / f"softmax3d_fold{INFER_FOLD}.pth"))
 )
 
-# Prefer hierarchical Phase-2 checkpoint when present; else legacy encoder path.
+# Prefer hierarchical_fold{N}.pth (default fold 0) when present; else legacy encoder.
 WEIGHTS_PATH = HIERARCHICAL_WEIGHTS if HIERARCHICAL_WEIGHTS.is_file() else ENCODER_WEIGHTS
 USE_HIERARCHICAL = HIERARCHICAL_WEIGHTS.is_file()
 

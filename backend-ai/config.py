@@ -4,7 +4,8 @@ from typing import Dict, Tuple
 # ── Patch geometry ──
 PATCH_SIZE: Tuple[int, int, int] = (16, 64, 64)
 INFER_DENSE_STRIDE: Tuple[int, int, int] = (4, 8, 8)
-INFER_MAX_PATCHES: int = 2048
+# Dense cascade OP (match backend-api / notebooks): do not lower for production triage.
+INFER_MAX_PATCHES: int = 8000
 
 # ── Class labels (0=Normal lung / background) ──
 # 1=Emphysema, 2=Fibrosis, 3=Ground Glass, 4=Micronodules, 5=Consolidation

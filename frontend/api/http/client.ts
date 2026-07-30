@@ -200,7 +200,17 @@ export async function apiFetchRaw(
         : (body as BodyInit);
   }
 
-  const res = await fetch(url, init);
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    if (err instanceof Error && /failed to fetch/i.test(err.message)) {
+      throw new TypeError(
+        "Could not reach the API. Check that the backend is running and NEXT_PUBLIC_API_BASE_URL is correct.",
+      );
+    }
+    throw err;
+  }
   if (!res.ok) {
     const text = await res.text();
     const data = parseResponseBody(text, res.headers.get("content-type"));

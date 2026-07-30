@@ -168,6 +168,17 @@ class UploadStudyResponse(BaseModel):
     patient: Patient
 
 
+class UploadJobStatus(BaseModel):
+    """``POST /studies/upload`` (async) and ``GET /studies/upload/jobs/{job_id}``."""
+
+    job_id: str
+    status: str  # queued | running | done | failed
+    step: str = ""
+    progress: float = 0.0
+    error: Optional[str] = None
+    result: Optional[UploadStudyResponse] = None
+
+
 class StudyMetrics(BaseModel):
     """``GET /studies/{study_id}/metrics``."""
 
@@ -416,6 +427,7 @@ __all__ = [
     "StudyListItem",
     "StudyMetrics",
     "UploadStudyResponse",
+    "UploadJobStatus",
     "AdminUserListItem",
     "UserResponse",
     "VolumeDisplayUnit",

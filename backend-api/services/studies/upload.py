@@ -1,6 +1,7 @@
 """Study upload: DICOM ZIP → AI pipeline → DB, mask, mesh, and analysis cache."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -25,7 +26,14 @@ from auth import (
 )
 from models.db import get_session
 from models.models import PatientORM, SegmentationResultORM, StudyORM, XRViewORM
-from schemas import Patient, SegmentationResult, Study, UploadStudyResponse, XRView
+from schemas import (
+    Patient,
+    SegmentationResult,
+    Study,
+    UploadJobStatus,
+    UploadStudyResponse,
+    XRView,
+)
 from services.patients.ids import generate_patient_external_id
 from services.ai.inference import (
     DicomInputError,
@@ -37,8 +45,9 @@ from services.ai.inference import (
 )
 from services.dicom.series_read import read_sorted_dicom_slices
 from services.notifications.service import notify_ai_analysis_complete, notify_ai_analysis_failed
+from services.studies.upload_jobs import create_job, start_background_job, update_job
 
-__all__ = ["upload_study_impl"]
+__all__ = ["upload_study_impl", "get_upload_job_status"]
 
 # ---------------------------------------------------------------------------
 # Mask persistence & metric sanitization
@@ -239,6 +248,404 @@ def _normalize_dicom_upload(
 # ---------------------------------------------------------------------------
 
 
+async def _analyze_and_persist_from_temp(
+    *,
+    temp_dir: Path,
+    weights_path: Path,
+    encoder_weights: Path | None,
+    softmax_weights: Path | None,
+    med3d_weights: Path | None,
+    hierarchical_ckpt: Path | None,
+    use_hierarchical: bool,
+    mask_storage: Path,
+    dicom_storage: Path,
+    static_mesh_dir: Path,
+    log_prefix: str,
+    request_id: str,
+    patient: str,
+    study_description: str | None,
+    current_user: TokenPayload,
+    job_id: str | None = None,
+) -> UploadStudyResponse:
+    """Run Softmax + mesh + DB persist from an already-extracted DICOM temp dir."""
+
+    def _progress(step: str, progress: float) -> None:
+        if job_id:
+            update_job(job_id, status="running", step=step, progress=progress)
+
+    _progress("Running AI analysis…", 12.0)
+    try:
+        cascade_stats: dict[str, Any] = {}
+        # Off the event loop so health checks / other requests stay responsive during Softmax.
+        _progress("Lungmask + Softmax…", 20.0)
+        mask, spacing, volume_hu, lung_mask = await asyncio.to_thread(
+            process_dicom_zip_dir,
+            temp_dir,
+            weights_path,
+            encoder_weights=encoder_weights or weights_path,
+            softmax_weights=softmax_weights,
+            med3d_weights=med3d_weights,
+            hierarchical_ckpt=hierarchical_ckpt if use_hierarchical else None,
+            cascade_stats=cascade_stats,
+        )
+    except DicomInputError as e:
+        logging.exception(
+            "DICOM validation error in %s/upload [request_id=%s]",
+            log_prefix,
+            request_id,
+        )
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        logging.exception(
+            "DICOM / volume value error in %s/upload [request_id=%s]",
+            log_prefix,
+            request_id,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=str(e) or "Invalid imaging data for analysis.",
+        ) from e
+    except Exception:
+        logging.exception(
+            "Unhandled DICOM processing error in %s/upload [request_id=%s]",
+            log_prefix,
+            request_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Internal DICOM processing error. "
+                f"Please retry or contact support with request_id={request_id}."
+            ),
+        ) from None
+
+    try:
+        _progress("Computing biomarkers…", 82.0)
+        class_metrics = await asyncio.to_thread(
+            compute_class_metrics, mask, spacing, lung_mask=lung_mask
+        )
+        if cascade_stats:
+            class_metrics["pathology_fraction"] = float(cascade_stats.get("pathology_fraction", 0.0))
+            class_metrics["mean_ild_prob"] = float(cascade_stats.get("mean_ild_prob", 0.0))
+            class_metrics["patient_binary_ild"] = float(cascade_stats.get("patient_binary_ild", 0))
+    except Exception as e:
+        logging.exception("compute_class_metrics failed in %s/upload", log_prefix)
+        class_metrics = {
+            "total_ild_volume_ml": 0.0,
+            "lung_volume_ml": 0.0,
+            "emphysema_volume_ml": 0.0,
+            "fibrosis_volume_ml": 0.0,
+            "ground_glass_volume_ml": 0.0,
+            "micronodules_volume_ml": 0.0,
+            "consolidation_volume_ml": 0.0,
+            "emphysema_burden": 0.0,
+            "fibrosis_burden": 0.0,
+            "ground_glass_burden": 0.0,
+            "micronodules_burden": 0.0,
+            "consolidation_burden": 0.0,
+            "ild_burden": 0.0,
+        }
+        logging.error("Falling back to zero metrics: %s: %s", type(e).__name__, e)
+
+    try:
+        zonal_dist = await asyncio.to_thread(estimate_zonal_distribution, mask)
+    except Exception as e:
+        logging.exception("estimate_zonal_distribution failed in %s/upload", log_prefix)
+        zonal_dist = {"Upper": 0.0, "Middle": 0.0, "Lower": 0.0}
+        logging.error("Falling back to empty zonal distribution: %s: %s", type(e).__name__, e)
+
+    try:
+        _progress("Building 3D mesh…", 90.0)
+        mesh_url = await asyncio.to_thread(
+            generate_mesh_glb,
+            mask,
+            static_mesh_dir,
+            spacing,
+            volume_hu=volume_hu,
+            lung_mask=lung_mask,
+        )
+    except Exception as e:
+        logging.exception("generate_mesh_glb failed in %s/upload", log_prefix)
+        mesh_url = ""
+        logging.error("Falling back to empty mesh_url: %s: %s", type(e).__name__, e)
+
+    class_metrics = _sanitize_class_metrics(class_metrics)
+    zonal_dist = _sanitize_zonal(zonal_dist)
+    total_vol = float(class_metrics.get("total_ild_volume_ml", 0.0) or 0.0)
+
+    study_ext_id = f"ST-{uuid.uuid4().hex[:8]}"
+    dice_score = compute_dice_against_ground_truth(study_ext_id, mask)
+
+    try:
+        payload = json.loads(patient)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid 'patient' JSON payload: {e.msg}",
+        ) from e
+
+    dicom_patient = _extract_patient_metadata_from_dicom(temp_dir)
+    explicit_patient_id = str(payload.get("id") or "").strip()
+    form_incoming_name = str(payload.get("name") or "").strip()
+    incoming_dob = str(payload.get("dob") or "").strip()
+    incoming_sex = str(payload.get("sex") or "").strip().upper()[:1]
+
+    # Link only when the client sent a registry id (patient picker).
+    # New-patient intake must not reuse DICOM PatientID — that would attach
+    # the study to whoever already owns that id in the database.
+    is_registry_link = bool(
+        explicit_patient_id and explicit_patient_id != "patient-unknown"
+    )
+    if is_registry_link:
+        payload["id"] = explicit_patient_id
+    else:
+        payload["id"] = generate_patient_external_id()
+
+    resolved_id = str(payload.get("id") or "").strip()
+
+    if _is_meaningful_patient_name(form_incoming_name):
+        payload["name"] = form_incoming_name
+    else:
+        registry_link_id = explicit_patient_id if is_registry_link else ""
+        registry_name = (
+            _registry_patient_display_name(registry_link_id) if registry_link_id else None
+        )
+        if registry_name:
+            payload["name"] = registry_name
+        else:
+            dicom_name = str(dicom_patient.get("name", "") or "").strip()
+            if dicom_name and not _is_placeholder_patient_name(dicom_name):
+                payload["name"] = dicom_name
+            else:
+                payload["name"] = resolved_id or "Unknown"
+    if not incoming_dob:
+        payload["dob"] = dicom_patient.get("dob", "")
+    if not incoming_sex:
+        payload["sex"] = dicom_patient.get("sex", "U")
+
+    mask_path = _save_mask_to_disk(mask_storage, study_ext_id, mask)
+
+    # Persist binary lung mask for slice viewer boundary overlay
+    lung_mask_disk = mask_storage / f"{study_ext_id}_lung.npy"
+    np.save(lung_mask_disk, lung_mask.astype("uint8"))
+
+    study_dicom_dir = dicom_storage / study_ext_id
+    try:
+        shutil.copytree(temp_dir, study_dicom_dir, dirs_exist_ok=True)
+    except OSError as exc:
+        logging.exception("copytree failed in %s/upload [request_id=%s]", log_prefix, request_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not persist DICOM files to storage: {exc}",
+        ) from exc
+
+    user_db_id = user_id_from_token(current_user)
+
+    try:
+        with get_session() as session:
+            p_ext_id = payload.get("id") or generate_patient_external_id()
+            if is_registry_link:
+                patient_orm = get_owned_patient_or_404(session, p_ext_id, current_user)
+            else:
+                patient_orm = (
+                    session.query(PatientORM)
+                    .filter(PatientORM.external_id == p_ext_id)
+                    .first()
+                )
+            if not patient_orm:
+                dob_value = payload.get("dob")
+                parsed_dob = date(1900, 1, 1)
+                if dob_value:
+                    try:
+                        parsed_dob = date.fromisoformat(dob_value)
+                    except (TypeError, ValueError):
+                        parsed_dob = date(1900, 1, 1)
+
+                patient_orm = PatientORM(
+                    external_id=p_ext_id,
+                    name=payload.get("name", "Unknown"),
+                    date_of_birth=parsed_dob,
+                    sex=payload.get("sex", "U"),
+                    user_id=user_db_id,
+                )
+                session.add(patient_orm)
+                session.flush()
+            else:
+                assert_patient_access(session, patient_orm, current_user)
+                merged_display_name = str(payload.get("name") or "").strip()
+                if _is_meaningful_patient_name(form_incoming_name):
+                    patient_orm.name = form_incoming_name
+                elif _is_placeholder_patient_name(patient_orm.name) and _is_meaningful_patient_name(
+                    merged_display_name
+                ):
+                    patient_orm.name = merged_display_name
+
+                incoming_dob = str(payload.get("dob") or "").strip()
+                if patient_orm.date_of_birth == date(1900, 1, 1) and incoming_dob:
+                    try:
+                        patient_orm.date_of_birth = date.fromisoformat(incoming_dob)
+                    except (TypeError, ValueError):
+                        pass
+
+                incoming_sex = str(payload.get("sex") or "").strip().upper()[:1]
+                if patient_orm.sex in {"", "U"} and incoming_sex in {"M", "F", "O"}:
+                    patient_orm.sex = incoming_sex
+
+            study_orm = StudyORM(
+                external_id=study_ext_id,
+                description=study_description or "AI Analysis",
+                volume_path=str(study_dicom_dir),
+                modality="ct",
+                patient_id=patient_orm.id,
+                user_id=user_db_id,
+            )
+            session.add(study_orm)
+            session.flush()
+
+            ild_burden = float(class_metrics.get("ild_burden", 0.0) or 0.0)
+            seg_orm = SegmentationResultORM(
+                external_id=f"SEG-{study_ext_id}",
+                total_ild_volume_ml=total_vol,
+                ild_fraction=ild_burden,
+                lung_volume_ml=class_metrics["lung_volume_ml"],
+                emphysema_volume_ml=class_metrics.get("emphysema_volume_ml", 0.0),
+                fibrosis_volume_ml=class_metrics.get("fibrosis_volume_ml", 0.0),
+                ground_glass_volume_ml=class_metrics.get("ground_glass_volume_ml", 0.0),
+                micronodules_volume_ml=class_metrics.get("micronodules_volume_ml", 0.0),
+                consolidation_volume_ml=class_metrics.get("consolidation_volume_ml", 0.0),
+                emphysema_burden=class_metrics.get("emphysema_burden", 0.0),
+                fibrosis_burden=class_metrics.get("fibrosis_burden", 0.0),
+                ground_glass_burden=class_metrics.get("ground_glass_burden", 0.0),
+                micronodules_burden=class_metrics.get("micronodules_burden", 0.0),
+                consolidation_burden=class_metrics.get("consolidation_burden", 0.0),
+                zonal_distribution=zonal_dist,
+                mesh_url=mesh_url or "",
+                mask_path=mask_path,
+                study_id=study_orm.id,
+                dice_score=dice_score,
+            )
+            session.add(seg_orm)
+            session.flush()
+
+            xr_orm = XRViewORM(
+                external_id=f"XR-{study_ext_id}",
+                segmentation_id=seg_orm.id,
+            )
+            session.add(xr_orm)
+            session.commit()
+
+            dice_out = (
+                _safe_float(dice_score, default=0.0, minimum=0.0, maximum=100.0)
+                if dice_score is not None
+                else None
+            )
+            xr_view = XRView(
+                id=xr_orm.external_id,
+                mesh_url=mesh_url or "",
+                clipping_enabled=xr_orm.clipping_enabled,
+            )
+            seg_model = SegmentationResult(
+                id=seg_orm.external_id,
+                total_ild_volume_ml=_safe_float(seg_orm.total_ild_volume_ml, minimum=0.0),
+                lung_volume_ml=_safe_float(seg_orm.lung_volume_ml, minimum=0.0)
+                if seg_orm.lung_volume_ml is not None
+                else None,
+                ild_burden=_safe_float(seg_orm.ild_fraction, minimum=0.0, maximum=1.0)
+                if seg_orm.ild_fraction is not None
+                else None,
+                ground_glass_volume_ml=_safe_float(seg_orm.ground_glass_volume_ml, minimum=0.0)
+                if seg_orm.ground_glass_volume_ml is not None
+                else None,
+                fibrosis_volume_ml=_safe_float(seg_orm.fibrosis_volume_ml, minimum=0.0)
+                if seg_orm.fibrosis_volume_ml is not None
+                else None,
+                consolidation_volume_ml=_safe_float(
+                    seg_orm.consolidation_volume_ml, minimum=0.0
+                )
+                if seg_orm.consolidation_volume_ml is not None
+                else None,
+                emphysema_volume_ml=_safe_float(seg_orm.emphysema_volume_ml, minimum=0.0)
+                if seg_orm.emphysema_volume_ml is not None
+                else None,
+                micronodules_volume_ml=_safe_float(seg_orm.micronodules_volume_ml, minimum=0.0)
+                if seg_orm.micronodules_volume_ml is not None
+                else None,
+                ground_glass_burden=_safe_float(seg_orm.ground_glass_burden, minimum=0.0, maximum=1.0)
+                if seg_orm.ground_glass_burden is not None
+                else None,
+                fibrosis_burden=_safe_float(
+                    seg_orm.fibrosis_burden, minimum=0.0, maximum=1.0
+                )
+                if seg_orm.fibrosis_burden is not None
+                else None,
+                consolidation_burden=_safe_float(
+                    seg_orm.consolidation_burden, minimum=0.0, maximum=1.0
+                )
+                if seg_orm.consolidation_burden is not None
+                else None,
+                emphysema_burden=_safe_float(seg_orm.emphysema_burden, minimum=0.0, maximum=1.0)
+                if seg_orm.emphysema_burden is not None
+                else None,
+                micronodules_burden=_safe_float(seg_orm.micronodules_burden, minimum=0.0, maximum=1.0)
+                if seg_orm.micronodules_burden is not None
+                else None,
+                zonal_distribution=_sanitize_zonal(seg_orm.zonal_distribution or {}),
+                mesh_url=seg_orm.mesh_url or "",
+                xr_view=xr_view,
+                dice_score=dice_out,
+            )
+            study_model = Study(
+                id=study_orm.external_id,
+                description=study_orm.description,
+                created_at=study_orm.created_at,
+                modality=study_orm.modality,
+                segmentation=seg_model,
+            )
+            patient_model = Patient(
+                id=patient_orm.external_id,
+                name=patient_orm.name,
+                dateOfBirth=patient_orm.date_of_birth,
+                notes=patient_orm.notes,
+                studies=[study_model],
+            )
+
+        notify_ai_analysis_complete(
+            study_id=study_ext_id,
+            user_id=user_db_id,
+            context="mesh",
+        )
+
+        return UploadStudyResponse(study_id=study_ext_id, patient=patient_model)
+    except IntegrityError as exc:
+        logging.exception(
+            "Study persist conflict in %s/upload [request_id=%s]",
+            log_prefix,
+            request_id,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Could not save this study (duplicate or conflicting data). "
+                "Try another patient identifier or retry."
+            ),
+        ) from exc
+    except ValidationError:
+        logging.exception(
+            "Response validation failed in %s/upload [request_id=%s]",
+            log_prefix,
+            request_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Analysis finished but the server could not serialize the response. "
+                f"request_id={request_id}"
+            ),
+        ) from None
+
+
+
+
 async def upload_study_impl(
     *,
     base_dir: Path,
@@ -259,9 +666,14 @@ async def upload_study_impl(
         list[UploadFile] | None, File(description="Multiple DICOM files (.dcm/.dicom)")
     ] = None,
     study_description: Annotated[str | None, Form()] = None,
+    async_analysis: bool = True,
     current_user: TokenPayload = Depends(get_current_user_optional),
-) -> UploadStudyResponse:
-    """Persist a CT study + AI segmentation outputs (ZIP, multiple slices, or folder as multi-file)."""
+) -> UploadStudyResponse | UploadJobStatus:
+    """Persist a CT study + AI segmentation outputs (ZIP, multiple slices, or folder as multi-file).
+
+    When ``async_analysis`` is True (default), DICOM is saved and Softmax runs in a
+    background job so the HTTP connection is not held for tens of minutes.
+    """
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required to save data.")
 
@@ -292,6 +704,7 @@ async def upload_study_impl(
     temp_dir = base_dir / "tmp" / session_id
     zip_path = base_dir / "tmp" / f"{session_id}.zip"
 
+    cleanup_temp = True
     try:
         temp_dir.mkdir(parents=True, exist_ok=True)
         if file is not None:
@@ -322,382 +735,160 @@ async def upload_study_impl(
                 with dest_path.open("wb") as out_f:
                     shutil.copyfileobj(f.file, out_f)
 
-        try:
-            cascade_stats: dict[str, Any] = {}
-            mask, spacing, volume_hu, lung_mask = process_dicom_zip_dir(
-                temp_dir,
-                weights_path,
-                encoder_weights=encoder_weights or weights_path,
-                softmax_weights=softmax_weights,
-                med3d_weights=med3d_weights,
-                hierarchical_ckpt=hierarchical_ckpt if use_hierarchical else None,
-                cascade_stats=cascade_stats,
+
+        if async_analysis:
+            job = create_job()
+            user_db_id = user_id_from_token(current_user)
+
+            def _worker() -> None:
+                try:
+                    update_job(
+                        job.id,
+                        status="running",
+                        step="Running AI analysis…",
+                        progress=8.0,
+                    )
+                    result = asyncio.run(
+                        _analyze_and_persist_from_temp(
+                            temp_dir=temp_dir,
+                            weights_path=weights_path,
+                            encoder_weights=encoder_weights,
+                            softmax_weights=softmax_weights,
+                            med3d_weights=med3d_weights,
+                            hierarchical_ckpt=hierarchical_ckpt,
+                            use_hierarchical=use_hierarchical,
+                            mask_storage=mask_storage,
+                            dicom_storage=dicom_storage,
+                            static_mesh_dir=static_mesh_dir,
+                            log_prefix=log_prefix,
+                            request_id=request_id,
+                            patient=patient,
+                            study_description=study_description,
+                            current_user=current_user,
+                            job_id=job.id,
+                        )
+                    )
+                    update_job(
+                        job.id,
+                        status="done",
+                        step="Done",
+                        progress=100.0,
+                        result=result.model_dump(mode="json"),
+                    )
+                except HTTPException as he:
+                    detail = he.detail if isinstance(he.detail, str) else str(he.detail)
+                    update_job(
+                        job.id,
+                        status="failed",
+                        step="Failed",
+                        progress=100.0,
+                        error=detail,
+                    )
+                    try:
+                        notify_ai_analysis_failed(
+                            study_id=request_id, user_id=user_db_id, error=detail
+                        )
+                    except Exception:
+                        logging.exception("notify failed for job %s", job.id)
+                except Exception as exc:
+                    msg = str(exc) or type(exc).__name__
+                    logging.exception("Async upload job %s failed", job.id)
+                    update_job(
+                        job.id,
+                        status="failed",
+                        step="Failed",
+                        progress=100.0,
+                        error=msg,
+                    )
+                    try:
+                        notify_ai_analysis_failed(
+                            study_id=request_id, user_id=user_db_id, error=msg
+                        )
+                    except Exception:
+                        logging.exception("notify failed for job %s", job.id)
+                finally:
+                    try:
+                        if zip_path.exists():
+                            zip_path.unlink(missing_ok=True)
+                    except OSError:
+                        logging.warning(
+                            "async upload zip cleanup failed job=%s", job.id, exc_info=True
+                        )
+                    try:
+                        if temp_dir.exists():
+                            shutil.rmtree(temp_dir, ignore_errors=True)
+                    except OSError:
+                        logging.warning(
+                            "async upload temp cleanup failed job=%s", job.id, exc_info=True
+                        )
+
+            cleanup_temp = False
+            start_background_job(job.id, _worker, name=f"ai-upload-{job.id}")
+            return UploadJobStatus(
+                job_id=job.id, status="queued", step="Queued", progress=0.0
             )
-        except DicomInputError as e:
-            logging.exception(
-                "DICOM validation error in %s/upload [request_id=%s]",
-                log_prefix,
-                request_id,
-            )
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        except ValueError as e:
-            logging.exception(
-                "DICOM / volume value error in %s/upload [request_id=%s]",
-                log_prefix,
-                request_id,
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=str(e) or "Invalid imaging data for analysis.",
-            ) from e
-        except Exception:
-            logging.exception(
-                "Unhandled DICOM processing error in %s/upload [request_id=%s]",
-                log_prefix,
-                request_id,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Internal DICOM processing error. "
-                    f"Please retry or contact support with request_id={request_id}."
-                ),
-            ) from None
 
-        try:
-            class_metrics = compute_class_metrics(mask, spacing, lung_mask=lung_mask)
-            if cascade_stats:
-                class_metrics["pathology_fraction"] = float(cascade_stats.get("pathology_fraction", 0.0))
-                class_metrics["mean_ild_prob"] = float(cascade_stats.get("mean_ild_prob", 0.0))
-                class_metrics["patient_binary_ild"] = float(cascade_stats.get("patient_binary_ild", 0))
-        except Exception as e:
-            logging.exception("compute_class_metrics failed in %s/upload", log_prefix)
-            class_metrics = {
-                "total_ild_volume_ml": 0.0,
-                "lung_volume_ml": 0.0,
-                "emphysema_volume_ml": 0.0,
-                "fibrosis_volume_ml": 0.0,
-                "ground_glass_volume_ml": 0.0,
-                "micronodules_volume_ml": 0.0,
-                "consolidation_volume_ml": 0.0,
-                "emphysema_burden": 0.0,
-                "fibrosis_burden": 0.0,
-                "ground_glass_burden": 0.0,
-                "micronodules_burden": 0.0,
-                "consolidation_burden": 0.0,
-                "ild_burden": 0.0,
-            }
-            logging.error("Falling back to zero metrics: %s: %s", type(e).__name__, e)
-
-        try:
-            zonal_dist = estimate_zonal_distribution(mask)
-        except Exception as e:
-            logging.exception("estimate_zonal_distribution failed in %s/upload", log_prefix)
-            zonal_dist = {"Upper": 0.0, "Middle": 0.0, "Lower": 0.0}
-            logging.error("Falling back to empty zonal distribution: %s: %s", type(e).__name__, e)
-
-        try:
-            mesh_url = generate_mesh_glb(
-                mask, static_mesh_dir, spacing, volume_hu=volume_hu, lung_mask=lung_mask
-            )
-        except Exception as e:
-            logging.exception("generate_mesh_glb failed in %s/upload", log_prefix)
-            mesh_url = ""
-            logging.error("Falling back to empty mesh_url: %s: %s", type(e).__name__, e)
-
-        class_metrics = _sanitize_class_metrics(class_metrics)
-        zonal_dist = _sanitize_zonal(zonal_dist)
-        total_vol = float(class_metrics.get("total_ild_volume_ml", 0.0) or 0.0)
-
-        study_ext_id = f"ST-{uuid.uuid4().hex[:8]}"
-        dice_score = compute_dice_against_ground_truth(study_ext_id, mask)
-
-        try:
-            payload = json.loads(patient)
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid 'patient' JSON payload: {e.msg}",
-            ) from e
-
-        dicom_patient = _extract_patient_metadata_from_dicom(temp_dir)
-        explicit_patient_id = str(payload.get("id") or "").strip()
-        form_incoming_name = str(payload.get("name") or "").strip()
-        incoming_dob = str(payload.get("dob") or "").strip()
-        incoming_sex = str(payload.get("sex") or "").strip().upper()[:1]
-
-        # Link only when the client sent a registry id (patient picker).
-        # New-patient intake must not reuse DICOM PatientID — that would attach
-        # the study to whoever already owns that id in the database.
-        is_registry_link = bool(
-            explicit_patient_id and explicit_patient_id != "patient-unknown"
+        return await _analyze_and_persist_from_temp(
+            temp_dir=temp_dir,
+            weights_path=weights_path,
+            encoder_weights=encoder_weights,
+            softmax_weights=softmax_weights,
+            med3d_weights=med3d_weights,
+            hierarchical_ckpt=hierarchical_ckpt,
+            use_hierarchical=use_hierarchical,
+            mask_storage=mask_storage,
+            dicom_storage=dicom_storage,
+            static_mesh_dir=static_mesh_dir,
+            log_prefix=log_prefix,
+            request_id=request_id,
+            patient=patient,
+            study_description=study_description,
+            current_user=current_user,
+            job_id=None,
         )
-        if is_registry_link:
-            payload["id"] = explicit_patient_id
-        else:
-            payload["id"] = generate_patient_external_id()
-
-        resolved_id = str(payload.get("id") or "").strip()
-
-        if _is_meaningful_patient_name(form_incoming_name):
-            payload["name"] = form_incoming_name
-        else:
-            registry_link_id = explicit_patient_id if is_registry_link else ""
-            registry_name = (
-                _registry_patient_display_name(registry_link_id) if registry_link_id else None
-            )
-            if registry_name:
-                payload["name"] = registry_name
-            else:
-                dicom_name = str(dicom_patient.get("name", "") or "").strip()
-                if dicom_name and not _is_placeholder_patient_name(dicom_name):
-                    payload["name"] = dicom_name
-                else:
-                    payload["name"] = resolved_id or "Unknown"
-        if not incoming_dob:
-            payload["dob"] = dicom_patient.get("dob", "")
-        if not incoming_sex:
-            payload["sex"] = dicom_patient.get("sex", "U")
-
-        mask_path = _save_mask_to_disk(mask_storage, study_ext_id, mask)
-
-        # Persist binary lung mask for slice viewer boundary overlay
-        lung_mask_disk = mask_storage / f"{study_ext_id}_lung.npy"
-        np.save(lung_mask_disk, lung_mask.astype("uint8"))
-
-        study_dicom_dir = dicom_storage / study_ext_id
-        try:
-            shutil.copytree(temp_dir, study_dicom_dir, dirs_exist_ok=True)
-        except OSError as exc:
-            logging.exception("copytree failed in %s/upload [request_id=%s]", log_prefix, request_id)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Could not persist DICOM files to storage: {exc}",
-            ) from exc
-
-        user_db_id = user_id_from_token(current_user)
-
-        try:
-            with get_session() as session:
-                p_ext_id = payload.get("id") or generate_patient_external_id()
-                if is_registry_link:
-                    patient_orm = get_owned_patient_or_404(session, p_ext_id, current_user)
-                else:
-                    patient_orm = (
-                        session.query(PatientORM)
-                        .filter(PatientORM.external_id == p_ext_id)
-                        .first()
-                    )
-                if not patient_orm:
-                    dob_value = payload.get("dob")
-                    parsed_dob = date(1900, 1, 1)
-                    if dob_value:
-                        try:
-                            parsed_dob = date.fromisoformat(dob_value)
-                        except (TypeError, ValueError):
-                            parsed_dob = date(1900, 1, 1)
-
-                    patient_orm = PatientORM(
-                        external_id=p_ext_id,
-                        name=payload.get("name", "Unknown"),
-                        date_of_birth=parsed_dob,
-                        sex=payload.get("sex", "U"),
-                        user_id=user_db_id,
-                    )
-                    session.add(patient_orm)
-                    session.flush()
-                else:
-                    assert_patient_access(session, patient_orm, current_user)
-                    merged_display_name = str(payload.get("name") or "").strip()
-                    if _is_meaningful_patient_name(form_incoming_name):
-                        patient_orm.name = form_incoming_name
-                    elif _is_placeholder_patient_name(patient_orm.name) and _is_meaningful_patient_name(
-                        merged_display_name
-                    ):
-                        patient_orm.name = merged_display_name
-
-                    incoming_dob = str(payload.get("dob") or "").strip()
-                    if patient_orm.date_of_birth == date(1900, 1, 1) and incoming_dob:
-                        try:
-                            patient_orm.date_of_birth = date.fromisoformat(incoming_dob)
-                        except (TypeError, ValueError):
-                            pass
-
-                    incoming_sex = str(payload.get("sex") or "").strip().upper()[:1]
-                    if patient_orm.sex in {"", "U"} and incoming_sex in {"M", "F", "O"}:
-                        patient_orm.sex = incoming_sex
-
-                study_orm = StudyORM(
-                    external_id=study_ext_id,
-                    description=study_description or "AI Analysis",
-                    volume_path=str(study_dicom_dir),
-                    modality="ct",
-                    patient_id=patient_orm.id,
-                    user_id=user_db_id,
-                )
-                session.add(study_orm)
-                session.flush()
-
-                ild_burden = float(class_metrics.get("ild_burden", 0.0) or 0.0)
-                seg_orm = SegmentationResultORM(
-                    external_id=f"SEG-{study_ext_id}",
-                    total_ild_volume_ml=total_vol,
-                    ild_fraction=ild_burden,
-                    lung_volume_ml=class_metrics["lung_volume_ml"],
-                    emphysema_volume_ml=class_metrics.get("emphysema_volume_ml", 0.0),
-                    fibrosis_volume_ml=class_metrics.get("fibrosis_volume_ml", 0.0),
-                    ground_glass_volume_ml=class_metrics.get("ground_glass_volume_ml", 0.0),
-                    micronodules_volume_ml=class_metrics.get("micronodules_volume_ml", 0.0),
-                    consolidation_volume_ml=class_metrics.get("consolidation_volume_ml", 0.0),
-                    emphysema_burden=class_metrics.get("emphysema_burden", 0.0),
-                    fibrosis_burden=class_metrics.get("fibrosis_burden", 0.0),
-                    ground_glass_burden=class_metrics.get("ground_glass_burden", 0.0),
-                    micronodules_burden=class_metrics.get("micronodules_burden", 0.0),
-                    consolidation_burden=class_metrics.get("consolidation_burden", 0.0),
-                    zonal_distribution=zonal_dist,
-                    mesh_url=mesh_url or "",
-                    mask_path=mask_path,
-                    study_id=study_orm.id,
-                    dice_score=dice_score,
-                )
-                session.add(seg_orm)
-                session.flush()
-
-                xr_orm = XRViewORM(
-                    external_id=f"XR-{study_ext_id}",
-                    segmentation_id=seg_orm.id,
-                )
-                session.add(xr_orm)
-                session.commit()
-
-                dice_out = (
-                    _safe_float(dice_score, default=0.0, minimum=0.0, maximum=100.0)
-                    if dice_score is not None
-                    else None
-                )
-                xr_view = XRView(
-                    id=xr_orm.external_id,
-                    mesh_url=mesh_url or "",
-                    clipping_enabled=xr_orm.clipping_enabled,
-                )
-                seg_model = SegmentationResult(
-                    id=seg_orm.external_id,
-                    total_ild_volume_ml=_safe_float(seg_orm.total_ild_volume_ml, minimum=0.0),
-                    lung_volume_ml=_safe_float(seg_orm.lung_volume_ml, minimum=0.0)
-                    if seg_orm.lung_volume_ml is not None
-                    else None,
-                    ild_burden=_safe_float(seg_orm.ild_fraction, minimum=0.0, maximum=1.0)
-                    if seg_orm.ild_fraction is not None
-                    else None,
-                    ground_glass_volume_ml=_safe_float(seg_orm.ground_glass_volume_ml, minimum=0.0)
-                    if seg_orm.ground_glass_volume_ml is not None
-                    else None,
-                    fibrosis_volume_ml=_safe_float(seg_orm.fibrosis_volume_ml, minimum=0.0)
-                    if seg_orm.fibrosis_volume_ml is not None
-                    else None,
-                    consolidation_volume_ml=_safe_float(
-                        seg_orm.consolidation_volume_ml, minimum=0.0
-                    )
-                    if seg_orm.consolidation_volume_ml is not None
-                    else None,
-                    emphysema_volume_ml=_safe_float(seg_orm.emphysema_volume_ml, minimum=0.0)
-                    if seg_orm.emphysema_volume_ml is not None
-                    else None,
-                    micronodules_volume_ml=_safe_float(seg_orm.micronodules_volume_ml, minimum=0.0)
-                    if seg_orm.micronodules_volume_ml is not None
-                    else None,
-                    ground_glass_burden=_safe_float(seg_orm.ground_glass_burden, minimum=0.0, maximum=1.0)
-                    if seg_orm.ground_glass_burden is not None
-                    else None,
-                    fibrosis_burden=_safe_float(
-                        seg_orm.fibrosis_burden, minimum=0.0, maximum=1.0
-                    )
-                    if seg_orm.fibrosis_burden is not None
-                    else None,
-                    consolidation_burden=_safe_float(
-                        seg_orm.consolidation_burden, minimum=0.0, maximum=1.0
-                    )
-                    if seg_orm.consolidation_burden is not None
-                    else None,
-                    emphysema_burden=_safe_float(seg_orm.emphysema_burden, minimum=0.0, maximum=1.0)
-                    if seg_orm.emphysema_burden is not None
-                    else None,
-                    micronodules_burden=_safe_float(seg_orm.micronodules_burden, minimum=0.0, maximum=1.0)
-                    if seg_orm.micronodules_burden is not None
-                    else None,
-                    zonal_distribution=_sanitize_zonal(seg_orm.zonal_distribution or {}),
-                    mesh_url=seg_orm.mesh_url or "",
-                    xr_view=xr_view,
-                    dice_score=dice_out,
-                )
-                study_model = Study(
-                    id=study_orm.external_id,
-                    description=study_orm.description,
-                    created_at=study_orm.created_at,
-                    modality=study_orm.modality,
-                    segmentation=seg_model,
-                )
-                patient_model = Patient(
-                    id=patient_orm.external_id,
-                    name=patient_orm.name,
-                    dateOfBirth=patient_orm.date_of_birth,
-                    notes=patient_orm.notes,
-                    studies=[study_model],
-                )
-
-            notify_ai_analysis_complete(
-                study_id=study_ext_id,
-                user_id=user_db_id,
-                context="mesh",
-            )
-
-            return UploadStudyResponse(study_id=study_ext_id, patient=patient_model)
-        except IntegrityError as exc:
-            logging.exception(
-                "Study persist conflict in %s/upload [request_id=%s]",
-                log_prefix,
-                request_id,
-            )
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Could not save this study (duplicate or conflicting data). "
-                    "Try another patient identifier or retry."
-                ),
-            ) from exc
-        except ValidationError:
-            logging.exception(
-                "Response validation failed in %s/upload [request_id=%s]",
-                log_prefix,
-                request_id,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Analysis finished but the server could not serialize the response. "
-                    f"request_id={request_id}"
-                ),
-            ) from None
     finally:
         # Never let cleanup failures mask a successful response or a raised HTTPException
         # (Windows often raises PermissionError if a handle is still open on temp_dir).
-        try:
-            if zip_path.exists():
-                zip_path.unlink(missing_ok=True)
-        except OSError:
-            logging.warning(
-                "upload temp zip cleanup failed [request_id=%s] path=%s",
-                request_id,
-                zip_path,
-                exc_info=True,
-            )
-        try:
-            if temp_dir.exists():
-                shutil.rmtree(temp_dir, ignore_errors=True)
-        except OSError:
-            logging.warning(
-                "upload temp dir cleanup failed [request_id=%s] path=%s",
-                request_id,
-                temp_dir,
-                exc_info=True,
-            )
+        # Async jobs own temp cleanup in the worker thread — do not return here
+        # (a bare return in finally would wipe the UploadJobStatus response).
+        if cleanup_temp:
+            try:
+                if zip_path.exists():
+                    zip_path.unlink(missing_ok=True)
+            except OSError:
+                logging.warning(
+                    "upload temp zip cleanup failed [request_id=%s] path=%s",
+                    request_id,
+                    zip_path,
+                    exc_info=True,
+                )
+            try:
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except OSError:
+                logging.warning(
+                    "upload temp dir cleanup failed [request_id=%s] path=%s",
+                    request_id,
+                    temp_dir,
+                    exc_info=True,
+                )
+
+
+def get_upload_job_status(job_id: str) -> UploadJobStatus:
+    """Return public status for an async upload/analysis job."""
+    from services.studies.upload_jobs import get_job
+
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Unknown upload job: {job_id}")
+    result = None
+    if job.result is not None:
+        result = UploadStudyResponse.model_validate(job.result)
+    return UploadJobStatus(
+        job_id=job.id,
+        status=job.status,
+        step=job.step,
+        progress=job.progress,
+        error=job.error,
+        result=result,
+    )

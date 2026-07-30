@@ -1,6 +1,7 @@
 """FastAPI application entry: env bootstrap, static mounts, route registration, health."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -76,6 +77,24 @@ DATA_DIR = BASE_DIR / "data"
 (DATA_DIR / "masks").mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
+# Windows-asyncio: suppress noisy ConnectionResetError traceback when
+# clients disconnect abruptly (common with SSE / streaming endpoints).
+# ---------------------------------------------------------------------------
+
+_asyncio_log = logging.getLogger("asyncio")
+
+
+def _silence_connection_reset(
+    loop: asyncio.AbstractEventLoop, context: dict,
+) -> None:
+    exc = context.get("exception")
+    if isinstance(exc, ConnectionResetError):
+        _asyncio_log.debug("Suppressed ConnectionResetError (client disconnect): %s", exc)
+        return
+    loop.default_exception_handler(context)
+
+
+# ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
 
@@ -93,8 +112,9 @@ app = FastAPI(
 
 
 @app.on_event("startup")
-def startup_event() -> None:
-    """Initialize DB and log LAN / Slicer hints for local development."""
+async def startup_event() -> None:
+    """Initialize DB, asyncio exception handler, and log LAN / Slicer hints."""
+    asyncio.get_running_loop().set_exception_handler(_silence_connection_reset)
     init_db()
     logging.info("Database tables verified/initialized.")
     from services.ai.config import DEVICE, FORCE_CPU
@@ -212,5 +232,7 @@ async def health_check() -> dict:
 if __name__ == "__main__":
     import uvicorn
 
-    _reload = os.environ.get("API_RELOAD", "1").lower() in ("1", "true", "yes")
+    # Default off: --reload kills in-flight Softmax uploads (browser "Failed to fetch").
+    # Opt in with API_RELOAD=1 for local non-AI iteration only.
+    _reload = os.environ.get("API_RELOAD", "0").lower() in ("1", "true", "yes")
     uvicorn.run("main:app", host=API_HOST, port=API_PORT, reload=_reload)

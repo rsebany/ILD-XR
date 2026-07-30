@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from auth import TokenPayload, get_current_user, get_owned_study_or_404
 from models.db import get_session
-from schemas import UploadStudyResponse
+from schemas import UploadJobStatus, UploadStudyResponse
 from services.studies.analysis_state import MASK_STORAGE
 # from services.studies.expert_mask_compare import run_expert_mask_compare_from_upload
-from services.studies.upload import upload_study_impl
+from services.studies.upload import get_upload_job_status, upload_study_impl
 
 from .common import (
     BASE_DIR,
@@ -122,11 +122,13 @@ def _build_study_description(
 
 @router.post(
     "/upload",
-    response_model=UploadStudyResponse,
+    response_model=None,
     name="studies_upload_dicom",
     summary="Ingest DICOM, run ILD analysis, persist study",
     description=(
-        "Send either a single `file` (.zip) or multiple `files` (.dcm / .dicom)."
+        "Send either a single `file` (.zip) or multiple `files` (.dcm / .dicom). "
+        "By default Softmax runs in a background job (`async_analysis=true`) so the "
+        "HTTP request returns quickly; poll `GET /studies/upload/jobs/{job_id}`."
     ),
 )
 async def upload_study(
@@ -144,8 +146,17 @@ async def upload_study(
     study_description: Annotated[str | None, Form()] = None,
     clinical_notes: Annotated[str | None, Form()] = None,
     modality: Annotated[str | None, Form()] = None,
+    async_analysis: Annotated[
+        bool,
+        Form(
+            description=(
+                "If true (default), return a job_id immediately and run Softmax in the "
+                "background. Set false only for short smoke tests."
+            )
+        ),
+    ] = True,
     current_user: TokenPayload = Depends(get_current_user),
-) -> UploadStudyResponse:
+) -> UploadStudyResponse | UploadJobStatus:
     patient = _legacy_patient_json(
         patient_id=patient_id,
         patient_name=patient_name,
@@ -168,7 +179,22 @@ async def upload_study(
             file=file,
             files=files,
             study_description=_build_study_description(study_description, modality),
+            async_analysis=async_analysis,
             current_user=current_user,
         )
     finally:
         await _close_upload_parts(file, files, log_label="upload")
+
+
+@router.get(
+    "/upload/jobs/{job_id}",
+    response_model=UploadJobStatus,
+    name="studies_upload_job_status",
+    summary="Poll async DICOM upload / AI analysis job",
+)
+async def upload_job_status(
+    job_id: str,
+    current_user: TokenPayload = Depends(get_current_user),
+) -> UploadJobStatus:
+    _ = current_user
+    return get_upload_job_status(job_id)

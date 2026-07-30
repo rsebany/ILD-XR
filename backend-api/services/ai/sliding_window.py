@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import gc
+import os
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -25,6 +26,25 @@ from services.ai.constants import (
 )
 
 __all__ = ["softmax_cascade_inference", "patient_cascade_binary"]
+
+
+def _env_int(name: str, default: int) -> int:
+    """Parse a positive-or-zero int from env; fall back to default on missing/invalid."""
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return int(str(raw).strip())
+    except ValueError:
+        logger.warning("Invalid %s=%r; using default %d", name, raw, default)
+        return default
+
+
+def _resolve_max_patches(explicit: int) -> int:
+    """Honor ILD_INFER_MAX_PATCHES when caller left the module default (notebook parity)."""
+    if explicit != _INFER_MAX_PATCHES:
+        return explicit
+    return _env_int("ILD_INFER_MAX_PATCHES", _INFER_MAX_PATCHES)
 
 
 def patient_cascade_binary(
@@ -116,6 +136,27 @@ def softmax_cascade_inference(
     if ct_norm.ndim != 3:
         raise ValueError(f"Expected ct_norm (D,H,W), got {ct_norm.shape}")
 
+    effective_max_patches = _resolve_max_patches(max_patches)
+    # Notebook parity (01_hierarchical_ild): periodic CUDA cleanup during long Softmax.
+    cleanup_every = _env_int("ILD_INFER_CLEANUP_EVERY", 64)
+    if effective_max_patches < _INFER_MAX_PATCHES:
+        logger.warning(
+            "Softmax max_patches=%d < published OP %d - incomplete lung coverage "
+            "can lower recall/precision; use full %d for clinical uploads",
+            effective_max_patches,
+            _INFER_MAX_PATCHES,
+            _INFER_MAX_PATCHES,
+        )
+    logger.info(
+        "Softmax cascade start: max_patches=%d cleanup_every=%d device=%s "
+        "decision=path_frac>=%.3f OR mean_ild>=%.2f",
+        effective_max_patches,
+        cleanup_every,
+        device,
+        CASCADE_PATH_THRESH,
+        CASCADE_PROB_THRESH,
+    )
+
     def _run(device_name: str) -> np.ndarray:
         # Detect checkpoint type: hierarchical has 3 heads, legacy has encoder + head
         ckpt = torch.load(str(encoder_weights), map_location="cpu", weights_only=False)
@@ -179,7 +220,7 @@ def softmax_cascade_inference(
             for oz in tqdm(zs, desc="Softmax patches", leave=False):
                 for oy in ys:
                     for ox in xs:
-                        if processed >= max_patches:
+                        if processed >= effective_max_patches:
                             break
                         lung_crop = _extract_patch(lung_mask, (oz, oy, ox), patch_size)
                         if float(lung_crop.mean()) < _MIN_PATCH_LUNG_FRAC_CLS:
@@ -192,6 +233,12 @@ def softmax_cascade_inference(
                             vote[c, oz : oz + dd, oy : oy + hh, ox : ox + ww][inside] += float(proba[c])
                         weight[oz : oz + dd, oy : oy + hh, ox : ox + ww][inside] += 1.0
                         processed += 1
+                        if (
+                            cleanup_every > 0
+                            and device_name.startswith("cuda")
+                            and processed % cleanup_every == 0
+                        ):
+                            torch.cuda.empty_cache()
 
         mask = np.zeros((d, h, w), dtype=np.uint8)
         inside = lung_mask > 0.5

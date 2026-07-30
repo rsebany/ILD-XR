@@ -39,6 +39,8 @@ Frontend (Next.js :3000) → Backend API (FastAPI :8000) → Postgres (:5432)
 
 Place weights in `backend-api/weights/` (not in git). Download from [GitHub Releases](https://github.com/rsebany/ILD-XR/releases) or your training export. See [backend-api/weights/README.md](backend-api/weights/README.md). Override with `ILD_INFER_FOLD` / `ILD_HIERARCHICAL_WEIGHTS`.
 
+Upload runs Softmax in a **background job** by default (`async_analysis=true`): the browser POST returns a `job_id` after DICOM ingest, then polls `GET /studies/upload/jobs/{job_id}` until analysis finishes — so long Softmax no longer drops the upload connection.
+
 Published metrics: `shared/config/evaluation-metrics.json` · `GET /health`.
 
 ## Requirements
@@ -68,7 +70,9 @@ DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/ild_xr
 Place weights in `backend-api/weights/`, then:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000 --env-file .env
+# No --reload during AI uploads: WatchFiles restart drops long Softmax POSTs ("Failed to fetch").
+# Or: python main.py  (API_RELOAD defaults to 0; set API_RELOAD=1 only for non-AI iteration)
+uvicorn main:app --host 0.0.0.0 --port 8000 --env-file .env
 
 # Frontend (new terminal)
 cd frontend
@@ -77,6 +81,7 @@ npm run dev
 ```
 
 - App: http://localhost:3000 · API docs: http://localhost:8000/docs · Health: http://localhost:8000/health
+- Do not save files under `backend-api/` while Softmax is running if you enabled reload.
 
 ## Docker
 
@@ -100,7 +105,10 @@ Useful: `docker compose logs -f backend-api` · `docker compose down`
 | `ILD_JWT_SECRET` | Prod | JWT signing key |
 | `ILD_HIERARCHICAL_WEIGHTS` | No | Hierarchical checkpoint path |
 | `ILD_MED3D_WEIGHTS` | No | Med3D init path |
-| `ILD_INFER_FOLD` | No | Fold index (default `0`) |
+| `ILD_INFER_FOLD` | No | Fold index (default `0` → `hierarchical_fold0.pth`) |
+| `ILD_INFER_MAX_PATCHES` | No | Softmax patch cap (default `8000` for published recall/precision; `400` smoke only) |
+| `ILD_INFER_CLEANUP_EVERY` | No | `torch.cuda.empty_cache` every N Softmax patches (default `64`) |
+| `API_RELOAD` | No | Uvicorn `--reload` when running `python main.py` (default `0`) |
 | `AI_FORCE_CPU` | No | Force CPU inference |
 | `NEXT_PUBLIC_API_BASE_URL` | No | Frontend → API URL (default `http://localhost:8000`) |
 

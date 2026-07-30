@@ -119,6 +119,83 @@ def test_gaussian_weights():
     print("  PASSED")
 
 
+def test_infer_env_knobs():
+    """ILD_INFER_MAX_PATCHES / ILD_INFER_CLEANUP_EVERY honor notebook env names."""
+    import os
+
+    backend_api_dir = str(PROJECT_ROOT / "backend-api")
+    if backend_api_dir not in sys.path:
+        sys.path.insert(0, backend_api_dir)
+
+    from services.ai.sliding_window import _env_int, _resolve_max_patches
+    from services.ai.constants import _INFER_MAX_PATCHES
+
+    os.environ.pop("ILD_INFER_MAX_PATCHES", None)
+    os.environ.pop("ILD_INFER_CLEANUP_EVERY", None)
+    assert _env_int("ILD_INFER_CLEANUP_EVERY", 64) == 64
+    assert _resolve_max_patches(_INFER_MAX_PATCHES) == _INFER_MAX_PATCHES
+    assert _resolve_max_patches(32) == 32  # explicit caller wins
+
+    os.environ["ILD_INFER_MAX_PATCHES"] = "400"
+    os.environ["ILD_INFER_CLEANUP_EVERY"] = "16"
+    assert _resolve_max_patches(_INFER_MAX_PATCHES) == 400
+    assert _env_int("ILD_INFER_CLEANUP_EVERY", 64) == 16
+
+    os.environ["ILD_INFER_MAX_PATCHES"] = "not-an-int"
+    assert _resolve_max_patches(_INFER_MAX_PATCHES) == _INFER_MAX_PATCHES
+
+    os.environ.pop("ILD_INFER_MAX_PATCHES", None)
+    os.environ.pop("ILD_INFER_CLEANUP_EVERY", None)
+    print("  PASSED")
+
+
+def test_high_recall_operating_point():
+    """Lock published dual-threshold OP + dense Softmax defaults (fold0 deploy)."""
+    backend_api_dir = str(PROJECT_ROOT / "backend-api")
+    if backend_api_dir not in sys.path:
+        sys.path.insert(0, backend_api_dir)
+
+    from services.ai.constants import (
+        CASCADE_PATH_THRESH,
+        CASCADE_PROB_THRESH,
+        _CLS_PATCH_SIZE,
+        _INFER_DENSE_STRIDE,
+        _INFER_MAX_PATCHES,
+        _MIN_PATCH_LUNG_FRAC_CLS,
+        _VOL_SMOOTH_SIZE,
+    )
+    from services.ai.sliding_window import patient_cascade_binary
+    from services.core.paths import HIERARCHICAL_WEIGHTS, INFER_FOLD
+
+    # Geometry / thresholds match evaluation-metrics.json cascade block
+    assert CASCADE_PATH_THRESH == 0.005, CASCADE_PATH_THRESH
+    assert CASCADE_PROB_THRESH == 0.45, CASCADE_PROB_THRESH
+    assert _CLS_PATCH_SIZE == (16, 64, 64)
+    assert _INFER_DENSE_STRIDE == (4, 8, 8)
+    assert _INFER_MAX_PATCHES == 8000
+    assert _MIN_PATCH_LUNG_FRAC_CLS == 0.20
+    assert _VOL_SMOOTH_SIZE == 3
+
+    # Default deploy checkpoint is hierarchical_fold0.pth
+    assert INFER_FOLD == 0
+    assert HIERARCHICAL_WEIGHTS.name == "hierarchical_fold0.pth"
+
+    # Boundary cases for high-recall OR rule
+    assert patient_cascade_binary(0.005, 0.0) == 1
+    assert patient_cascade_binary(0.0049, 0.45) == 1
+    assert patient_cascade_binary(0.0049, 0.449) == 0
+    assert patient_cascade_binary(0.0, 0.0) == 0
+    assert patient_cascade_binary(1.0, 1.0) == 1
+
+    # backend-ai config must stay aligned (no stale 2048 cap)
+    ai_cfg = _load_ai_module("config.py", "_test_ai_config_op")
+    assert ai_cfg.INFER_MAX_PATCHES == 8000
+    assert ai_cfg.CASCADE_PATH_THRESH == 0.005
+    assert ai_cfg.CASCADE_PROB_THRESH == 0.45
+
+    print("  PASSED")
+
+
 def test_softmax_cascade_inference():
     """Run softmax_cascade_inference on a synthetic volume."""
     backend_api_dir = str(PROJECT_ROOT / "backend-api")
@@ -127,14 +204,14 @@ def test_softmax_cascade_inference():
 
     from services.ai.sliding_window import softmax_cascade_inference
 
-    # Prefer hierarchical checkpoint
+    # Prefer hierarchical_fold0.pth (deployed default)
     hier_w = WEIGHTS_DIR / "hierarchical_fold0.pth"
     enc_w = WEIGHTS_DIR / "encoder3d_fold0.pth"
     softmax_w = WEIGHTS_DIR / "softmax3d_fold0.pth"
 
     if hier_w.exists():
         w_path, sw_path = hier_w, None
-        mode = "hierarchical"
+        mode = "hierarchical_fold0"
     elif enc_w.exists() and softmax_w.exists():
         w_path, sw_path = enc_w, softmax_w
         mode = "legacy"
@@ -148,6 +225,7 @@ def test_softmax_cascade_inference():
     lung_mask = np.zeros((d, h, w), dtype=np.uint8)
     lung_mask[:, 20:76, 20:76] = 1
 
+    cascade_stats = {}
     mask = softmax_cascade_inference(
         ct_norm,
         lung_mask,
@@ -155,15 +233,33 @@ def test_softmax_cascade_inference():
         sw_path,
         device="cpu",
         max_patches=32,
+        cascade_stats=cascade_stats,
     )
 
     assert mask.shape == (d, h, w), f"Output shape: {mask.shape}"
     assert mask.dtype == np.uint8, f"Output dtype: {mask.dtype}"
     unique = np.unique(mask)
     assert all(0 <= v < _NUM_CLASSES for v in unique), f"Unexpected classes: {unique}"
+    assert "patient_binary_ild" in cascade_stats
+    assert cascade_stats["patient_binary_ild"] in (0, 1)
+    assert "pathology_fraction" in cascade_stats
+    assert "mean_ild_prob" in cascade_stats
+    # Dual-threshold decision must match helper
+    from services.ai.sliding_window import patient_cascade_binary
+
+    expected = patient_cascade_binary(
+        float(cascade_stats["pathology_fraction"]),
+        float(cascade_stats["mean_ild_prob"]),
+    )
+    assert int(cascade_stats["patient_binary_ild"]) == expected
     counts = dict(zip(*np.unique(mask, return_counts=True)))
     print(f"  [{mode}] shape={mask.shape} dtype={mask.dtype}")
     print(f"  classes: {counts}")
+    print(
+        f"  cascade: path_frac={cascade_stats['pathology_fraction']:.4f} "
+        f"mean_ild={cascade_stats['mean_ild_prob']:.4f} "
+        f"patient_bin={cascade_stats['patient_binary_ild']}"
+    )
     print("  PASSED")
 
 
@@ -172,6 +268,8 @@ if __name__ == "__main__":
         ("Hierarchical weight loading", test_hierarchical_weight_loading),
         ("Legacy weight loading", test_legacy_weight_loading),
         ("Gaussian weight computation", test_gaussian_weights),
+        ("Infer env knobs (cleanup / max_patches)", test_infer_env_knobs),
+        ("High-recall OP (thresholds / fold0 / geometry)", test_high_recall_operating_point),
         ("Softmax cascade inference (CPU)", test_softmax_cascade_inference),
     ]
 

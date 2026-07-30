@@ -120,6 +120,16 @@ export interface UploadStudyResponse {
   patient: any;
 }
 
+/** Async upload job from `POST /studies/upload` + `GET /studies/upload/jobs/{id}`. */
+export interface UploadJobStatus {
+  job_id: string;
+  status: "queued" | "running" | "done" | "failed" | string;
+  step: string;
+  progress: number;
+  error?: string | null;
+  result?: UploadStudyResponse | null;
+}
+
 /** Payload for `POST /studies/upload` `patient` form field (JSON). */
 export interface UploadStudyPatientPayload {
   id?: string;
