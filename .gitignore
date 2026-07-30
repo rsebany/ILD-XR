@@ -40,6 +40,10 @@ backend-api/results/*_patients.csv
 backend-api/results/*_mask_audit.csv
 backend-api/results/*_biomarker.csv
 
+# Local paper/export artifacts (do not push)
+shared/config/evaluation-metrics.json
+shared/figures/
+
 venv/
 
 # Logs
