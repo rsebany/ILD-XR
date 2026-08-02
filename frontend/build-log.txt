@@ -1,0 +1,8 @@
+▲ Next.js 16.1.6 (webpack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · proxyClientMaxBodySize: "1gb"
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 26.0min
+  Running TypeScript ...

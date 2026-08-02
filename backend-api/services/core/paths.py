@@ -15,7 +15,7 @@ MED3D_WEIGHTS = Path(os.environ.get("ILD_MED3D_WEIGHTS", str(BASE_DIR / "weights
 HIERARCHICAL_WEIGHTS = Path(
     os.environ.get(
         "ILD_HIERARCHICAL_WEIGHTS",
-        str(BASE_DIR / "weights" / f"hierarchical_fold{INFER_FOLD}.pth"),
+        str(BASE_DIR / "weights" / "hierarchical.pth"),
     )
 )
 ENCODER_WEIGHTS = Path(
@@ -25,7 +25,7 @@ SOFTMAX_WEIGHTS = Path(
     os.environ.get("ILD_SOFTMAX_WEIGHTS", str(BASE_DIR / "weights" / f"softmax3d_fold{INFER_FOLD}.pth"))
 )
 
-# Prefer hierarchical_fold{N}.pth (default fold 0) when present; else legacy encoder.
+# Prefer hierarchical.pth when present; else legacy encoder (fold via ILD_INFER_FOLD).
 WEIGHTS_PATH = HIERARCHICAL_WEIGHTS if HIERARCHICAL_WEIGHTS.is_file() else ENCODER_WEIGHTS
 USE_HIERARCHICAL = HIERARCHICAL_WEIGHTS.is_file()
 

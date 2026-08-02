@@ -1,16 +1,15 @@
 /**
  * Legacy redirect — `/xr/patient/:id` → `/webxr?patientId=…`
  */
-"use client";
-
 import { redirect } from "next/navigation";
 
-type Params = {
-  params: {
+type Props = {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export default function XRPatientRedirect({ params }: Params) {
-  redirect(`/webxr?patientId=${encodeURIComponent(params.id)}`);
+export default async function XRPatientRedirect({ params }: Props) {
+  const { id } = await params;
+  redirect(`/webxr?patientId=${encodeURIComponent(id)}`);
 }

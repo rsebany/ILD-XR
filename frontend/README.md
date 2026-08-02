@@ -1,5 +1,5 @@
 # Frontend
 
-Next.js app for ILD-XR.
+Next.js UI for ILD-XR (2D / 3D / WebXR).
 
-See the root [README](../README.md) **Quick Start** for install and run instructions (`npm install` · `npm run dev`).
+**To run the platform**, follow the root [README](../README.md) (Docker or local).

@@ -40,9 +40,9 @@ def test_hierarchical_weight_loading():
     HierarchicalEncoder3D = med3d.HierarchicalEncoder3D
     load_hierarchical_checkpoint = med3d.load_hierarchical_checkpoint
 
-    hier_path = WEIGHTS_DIR / "hierarchical_fold0.pth"
+    hier_path = WEIGHTS_DIR / "hierarchical.pth"
     if not hier_path.exists():
-        print("  SKIP: hierarchical_fold0.pth not in backend-api/weights")
+        print("  SKIP: hierarchical.pth not in backend-api/weights")
         return
 
     model = HierarchicalEncoder3D()
@@ -176,9 +176,9 @@ def test_high_recall_operating_point():
     assert _MIN_PATCH_LUNG_FRAC_CLS == 0.20
     assert _VOL_SMOOTH_SIZE == 3
 
-    # Default deploy checkpoint is hierarchical_fold0.pth
+    # Default deploy checkpoint is hierarchical.pth
     assert INFER_FOLD == 0
-    assert HIERARCHICAL_WEIGHTS.name == "hierarchical_fold0.pth"
+    assert HIERARCHICAL_WEIGHTS.name == "hierarchical.pth"
 
     # Boundary cases for high-recall OR rule
     assert patient_cascade_binary(0.005, 0.0) == 1
@@ -204,14 +204,14 @@ def test_softmax_cascade_inference():
 
     from services.ai.sliding_window import softmax_cascade_inference
 
-    # Prefer hierarchical_fold0.pth (deployed default)
-    hier_w = WEIGHTS_DIR / "hierarchical_fold0.pth"
+    # Prefer hierarchical.pth (deployed default)
+    hier_w = WEIGHTS_DIR / "hierarchical.pth"
     enc_w = WEIGHTS_DIR / "encoder3d_fold0.pth"
     softmax_w = WEIGHTS_DIR / "softmax3d_fold0.pth"
 
     if hier_w.exists():
         w_path, sw_path = hier_w, None
-        mode = "hierarchical_fold0"
+        mode = "hierarchical"
     elif enc_w.exists() and softmax_w.exists():
         w_path, sw_path = enc_w, softmax_w
         mode = "legacy"

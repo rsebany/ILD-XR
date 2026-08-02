@@ -25,7 +25,7 @@ export function XrExperiencePage({ mode }: Props) {
   const [focusStackNonce, setFocusStackNonce] = useState(0);
   const [focusMeshNonce, setFocusMeshNonce] = useState(0);
   const [focusBalancedNonce, setFocusBalancedNonce] = useState(0);
-  const [meshScale, setMeshScale] = useState(XR_SIDE_BY_SIDE.defaultMeshScale);
+  const [meshScale, setMeshScale] = useState<number>(XR_SIDE_BY_SIDE.defaultMeshScale);
   const [arQuality, setArQuality] = useState<ArQualityPreset>("balanced");
   const [vrSpawnNonce, setVrSpawnNonce] = useState(0);
 

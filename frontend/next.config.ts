@@ -45,6 +45,11 @@ const nextConfig: NextConfig = {
       ],
     };
   },
+  turbopack: {
+    resolveAlias: {
+      three: path.join("node_modules", "three"),
+    },
+  },
   webpack(config) {
     const alias = config.resolve.alias;
     const rest =
