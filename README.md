@@ -128,7 +128,7 @@ Verify weights: `python backend-api/scripts/ai/check_weights.py` (from `backend-
 ```bibtex
 @misc{sebany2026ildxr,
   title={Patient-Level Hierarchical 3D Deep Learning for ILD Screening with Volumetric Biomarkers},
-  author={Sebany, Romualdo and Benbelkacem, Samir and Ykhlef, Hadjer and Ykhlef, Faycal and Masmoudi, Mostefa},
+  author={Sebany, Romualdo et al.},
   year={2026},
   note={Manuscript in preparation},
   howpublished={\url{https://github.com/rsebany/ILD-XR}}

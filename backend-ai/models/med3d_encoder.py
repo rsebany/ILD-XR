@@ -1,4 +1,4 @@
-"""Hierarchical 3D ResNet-18 encoder with SE blocks + 3 Softmax heads (notebook 05)."""
+"""Hierarchical 3D ResNet-18 encoder with SE blocks + 3 Softmax heads"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,7 +44,7 @@ class ResBlock3D(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# Squeeze-and-Excitation blocks (notebook 05)
+# Squeeze-and-Excitation blocks
 # ---------------------------------------------------------------------------
 
 
@@ -86,7 +86,7 @@ class SE_ResBlock3D(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# Original Med3DPathologyEncoder3D (backward compat — paper v3.0)
+# Original Med3DPathologyEncoder3D
 # ---------------------------------------------------------------------------
 
 
@@ -199,7 +199,7 @@ def load_softmax_head_from_checkpoint(
 
 
 # ---------------------------------------------------------------------------
-# HierarchicalEncoder3D (notebook 05 — primary model)
+# HierarchicalEncoder3D
 # ---------------------------------------------------------------------------
 
 N_BINARY_CLASSES = 2   # Normal, ILD

@@ -1,4 +1,4 @@
-"""Configuration for ILD-XR hierarchical pipeline (notebook 05)."""
+"""Configuration for ILD-XR hierarchical pipeline"""
 from typing import Dict, Tuple
 
 # ── Patch geometry ──
