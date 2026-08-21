@@ -31,7 +31,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ILD-XR",
   description:
-    "Patient-level hierarchical 3D ILD screening with volumetric biomarkers and browser-native WebXR review.",
+    "Patient-level hierarchical 3D ILD analysis with high-recall candidate flagging, volumetric biomarkers and browser-native WebXR review.",
   icons: {
     icon: "/assets/logo.png",
   },

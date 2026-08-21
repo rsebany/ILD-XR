@@ -28,8 +28,8 @@ export const WORKFLOW_STEPS = [
 
 export const RESEARCH_PILLARS = [
   {
-    title: "Patient-level screening",
-    hint: "Binary Normal vs Any-ILD is the primary clinical claim under patient-disjoint evaluation.",
+    title: "High-recall patient flagging",
+    hint: "Binary Normal vs Any-ILD is the primary clinical claim under patient-disjoint evaluation; a prioritization aid, not a standalone screening classifier.",
   },
   {
     title: "Pattern-attributed biomarkers",

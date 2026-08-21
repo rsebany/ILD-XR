@@ -30,9 +30,9 @@ backend-api/weights/*.pth
 !backend-api/weights/.gitkeep
 
 # Notebooks: keep sources, ignore checkpoints / local secrets
-Experimentations/.ipynb_checkpoints/
-Experimentations/local.env
-Experimentations/Results/
+Notebooks/.ipynb_checkpoints/
+Notebooks/local.env
+Notebooks/Results/
 **/checkpoint/
 
 # Per-patient / path-leaking runtime CSVs (aggregate JSON summaries may stay tracked)

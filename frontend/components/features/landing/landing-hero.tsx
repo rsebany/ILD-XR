@@ -13,7 +13,7 @@ export function LandingHero() {
       >
         <span className="text-sky-400">ILD-XR</span>
         <span className="mt-3 block text-3xl font-bold tracking-tight md:text-4xl">
-          Patient-level hierarchical 3D ILD screening
+          Patient-level hierarchical 3D ILD analysis
         </span>
       </motion.h1>
       <p className="mb-10 text-lg text-slate-400">
