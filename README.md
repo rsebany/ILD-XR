@@ -22,7 +22,7 @@ ILD-XR is a visual prioritization and monitoring aid, not a standalone screening
 
 ## Results
 
-Patient-disjoint stratified five-fold cross-validation on all 113 MedGIFT patients.
+Patient-disjoint stratified five-fold cross-validation on all 113 patients.
 
 | Metric | Patch-level OOF | Patient-level cascade |
 |--------|----------------|----------------------|
@@ -106,13 +106,13 @@ ILD-XR/
 
 ## Dataset
 
-Training and evaluation use the public HUG ILD Database (MedGIFT, n=113 patients) with sparse expert annotations of pathological regions. The database provides no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter. Volumes are not tracked in git and are not required to run the platform.
+Training and evaluation use a public hospital ILD CT database (113 patients) with sparse expert annotations of pathological regions. The database provides no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter. Volumes are not tracked in git and are not required to run the platform.
 
 ## References
 
 - Hofmanninger J, Cash M, Prosch H, Langs G. *Automatic lung segmentation in routine imaging is primarily a data diversity problem.* European Radiology (2020).
 - Chen S, et al. *Med3D: Transfer Learning for 3D Medical Image Analysis* (2019). [MedicalNet](https://github.com/Tencent/MedicalNet)
-- Depeursinge A, et al. *Building a reference multimedia database for interstitial lung diseases.* Computerized Medical Imaging and Graphics (2012). [MedGIFT](https://medgift.hevs.ch/wordpress/databases/ild-database/)
+- Depeursinge A, et al. *Building a reference multimedia database for interstitial lung diseases.* Computerized Medical Imaging and Graphics (2012).
 - Lorensen WE, Cline HE. *Marching Cubes: A High Resolution 3D Surface Construction Algorithm.* SIGGRAPH (1987).
 - Taubin G. *Geometric Signal Processing on Polygonal Meshes.* Eurographics (2000).
 
