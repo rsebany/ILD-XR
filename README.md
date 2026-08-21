@@ -5,6 +5,7 @@
 **Hierarchical 3D deep learning for ILD quantitative mapping and immersive review**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-green)](https://github.com/rsebany/ILD-XR/releases/tag/v1.0.0)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![PyTorch 2.6](https://img.shields.io/badge/PyTorch-2.6-ee4c2c)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -44,10 +45,15 @@ cd ILD-XR
 # 2. Environment
 cp .env.example .env          # set ILD_JWT_SECRET for production
 
-# 3. Download weights -> backend-api/weights/
+# 3. Download weights (release v1.0.0) -> backend-api/weights/
+mkdir -p backend-api/weights
+curl -L -o backend-api/weights/resnet_18.pth \
+  https://github.com/rsebany/ILD-XR/releases/download/v1.0.0/resnet_18.pth
+curl -L -o backend-api/weights/hierarchical.pth \
+  https://github.com/rsebany/ILD-XR/releases/download/v1.0.0/hierarchical.pth
+
+#    Or download manually from
 #    https://github.com/rsebany/ILD-XR/releases/tag/v1.0.0
-#    resnet_18.pth      Med3D initialization (required)
-#    hierarchical.pth   Default inference checkpoint
 
 # 4. Launch
 docker compose up --build -d
