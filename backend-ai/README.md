@@ -12,4 +12,4 @@ Loaded by **`backend-api`** at runtime — no separate install.
 
 Weights live in `backend-api/weights/` — see [weights README](../backend-api/weights/README.md).
 
-**To run the web app**, use the root [README](../README.md). Training notebooks: [`Experimentations/`](../Experimentations/).
+**To run the web app**, use the root [README](../README.md). Training notebooks: [`Notebooks/`](../Notebooks/).
