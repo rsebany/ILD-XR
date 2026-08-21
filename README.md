@@ -2,7 +2,23 @@
 
 Open platform for hierarchical 3D ILD analysis on chest CT: DICOM upload, AI inference with high-recall candidate flagging, volumetric biomarkers, and browser-native WebXR review.
 
-**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind 4 · Three.js / @react-three/xr (WebXR) · FastAPI · SQLAlchemy 2 · PostgreSQL · PyTorch 2.6 · lungmask R231 · SimpleITK · scikit-image · trimesh · Docker
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | [Next.js 16](https://nextjs.org) · [React 19](https://react.dev) · [TypeScript](https://www.typescriptlang.org) · [Tailwind CSS 4](https://tailwindcss.com) · [Radix UI](https://www.radix-ui.com) |
+| 3D / XR | [Three.js](https://threejs.org) · [react-three-fiber](https://docs.pmnd.rs) · [react-three-xr](https://github.com/pmndrs/react-three-xr) · [WebXR Device API](https://developer.mozilla.org/en-US/docs/Web/API/WebXR_Device_API) |
+| Backend API | [FastAPI](https://fastapi.tiangolo.com) · [SQLAlchemy 2](https://www.sqlalchemy.org) · [PostgreSQL](https://www.postgresql.org) · [python-jose](https://github.com/mpdavis/python-jose) (JWT) |
+| AI inference | [PyTorch 2.6](https://pytorch.org) · [lungmask R231](https://github.com/JoHof/lungmask) · [SimpleITK](https://simpleitk.org) · [pydicom](https://pydicom.github.io) · [nibabel](https://nipy.org/nibabel) |
+| Mesh processing | [scikit-image](https://scikit-image.org) (Marching Cubes) · [trimesh](https://trimesh.org) (GLB export, Taubin smoothing) |
+| Infrastructure | [Docker Compose](https://docs.docker.com/compose/) · NVIDIA GPU optional |
+
+**Algorithm and data references**
+
+- Lung segmentation: Hofmanninger et al., *Automatic lung segmentation in routine imaging is primarily a data diversity problem*, European Radiology (2020) · [lungmask](https://github.com/JoHof/lungmask)
+- Transfer initialization: Chen et al., *Med3D: Transfer Learning for 3D Medical Image Analysis* (2019) · [MedicalNet](https://github.com/Tencent/MedicalNet)
+- Evaluation cohort: Depeursinge et al., *Building a reference multimedia database for interstitial lung diseases*, CMIG (2012) · [MedGIFT](https://medgift.hevs.ch/wordpress/databases/ild-database/)
+- Surface reconstruction: Lorensen & Cline, *Marching Cubes* (SIGGRAPH 1987); Taubin, *Geometric Signal Processing on Polygonal Meshes* (Eurographics 2000)
 
 ## Features
 
