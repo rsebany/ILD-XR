@@ -9,7 +9,7 @@ Training, evaluation and ablation pipeline for the ILD-XR model. **Not required*
 ## Environment
 
 ```bash
-export ILD_MEDGIFT_ROOT=/path/to/volumes
+export ILD_DATA_ROOT=/path/to/volumes
 export ILD_LUNG_MASK_BASE=/path/to/lung_masks
 export ILD_MODELS_DIR=/path/to/checkpoints
 export ILD_EXPORTS_DIR=/path/to/exports

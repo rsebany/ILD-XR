@@ -18,7 +18,7 @@ CLASS_LABELS: Dict[int, str] = {
 }
 
 # ── Hierarchical task definitions ──
-# Original MedGIFT classes
+# Raw annotation classes
 ORIGINAL_CLASS_NAMES = ["Normal", "Emphysema", "Fibrosis", "Ground Glass", "Micronodules", "Consolidation"]
 SEG_NUM_CLASSES: int = 6
 
@@ -57,4 +57,4 @@ CASCADE_PROB_THRESH: float = 0.45
 VOL_SMOOTH_SIZE: int = 3
 
 # ── Training (for reference — unused in inference) ──
-MEDGIFT_TO_CLS_FALLBACK: Dict[int, int] = {1: 0, 2: 1, 3: 3, 4: 2, 5: 4, 6: 5, 8: 5, 11: 4, 14: 2}
+RAW_TO_CLS_FALLBACK: Dict[int, int] = {1: 0, 2: 1, 3: 3, 4: 2, 5: 4, 6: 5, 8: 5, 11: 4, 14: 2}
