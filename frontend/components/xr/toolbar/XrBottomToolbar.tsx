@@ -30,6 +30,8 @@ export function XrBottomToolbar({
   realLungEnabled = false,
   onToggleRealLung,
 }: XrBottomToolbarProps) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   return (
     <div
       className={cn(
@@ -37,16 +39,20 @@ export function XrBottomToolbar({
         "bottom-2 right-3 left-auto w-[min(100%,22rem)] sm:right-4",
       )}
     >
-      <CameraToolbarGroup
-        onFocusStack={onFocusStack}
-        onFocusMesh={onFocusMesh}
-        onBalancedView={onBalancedView}
-        realLungEnabled={realLungEnabled}
-        onToggleRealLung={onToggleRealLung}
-      />
-      <ZoomToolbarGroup onZoomIn={onZoomIn} onZoomOut={onZoomOut} />
-      <LayersToolbarGroup meshClassVisibility={meshClassVisibility} onToggleMeshClass={onToggleMeshClass} />
-      <PresetsToolbarGroup onPresetAll={onPresetAll} onPresetLesions={onPresetLesions} onPresetShell={onPresetShell} />
+      {!isMobile && (
+        <>
+          <CameraToolbarGroup
+            onFocusStack={onFocusStack}
+            onFocusMesh={onFocusMesh}
+            onBalancedView={onBalancedView}
+            realLungEnabled={realLungEnabled}
+            onToggleRealLung={onToggleRealLung}
+          />
+          <ZoomToolbarGroup onZoomIn={onZoomIn} onZoomOut={onZoomOut} />
+          <LayersToolbarGroup meshClassVisibility={meshClassVisibility} onToggleMeshClass={onToggleMeshClass} />
+          <PresetsToolbarGroup onPresetAll={onPresetAll} onPresetLesions={onPresetLesions} onPresetShell={onPresetShell} />
+        </>
+      )}
       <ImmersiveToolbarRow
         immersiveMode={immersiveMode}
         isImmersiveSupported={isImmersiveSupported}

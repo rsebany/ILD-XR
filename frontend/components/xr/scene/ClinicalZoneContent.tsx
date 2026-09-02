@@ -22,6 +22,7 @@ type Props = {
   useHtmlControls: boolean;
   isPresenting: boolean;
   isArImmersive: boolean;
+  mobileAr?: boolean;
   arQuality: ArQualityPreset;
   hideHeavyArAssets: boolean;
   studyId: string | null;
@@ -54,6 +55,10 @@ type Props = {
 
 export function ClinicalZoneContent(props: Props) {
   const { showImmersive3DControls, hideHeavyArAssets, studyId, dicomSliceCount, ...mesh } = props;
+  const mobileAr = props.mobileAr ?? false;
+  // On mobile AR, overlay the DICOM slice directly over the centered mesh instead of
+  // the side-by-side desktop layout, so nothing drifts off-center/off-screen.
+  const dicomOffset = mobileAr ? [0, 0.28, 0.15] : XR_SIDE_BY_SIDE.dicom;
 
   return (
     <>
@@ -84,7 +89,7 @@ export function ClinicalZoneContent(props: Props) {
           isPlaying={props.isDicomPlaying}
           onTogglePlay={props.onToggleDicomPlay}
           onPausePlayback={props.onPauseDicomPlay}
-          layoutPosition={[...XR_SIDE_BY_SIDE.dicom]}
+          layoutPosition={[...dicomOffset]}
         />
       ) : null}
     </>

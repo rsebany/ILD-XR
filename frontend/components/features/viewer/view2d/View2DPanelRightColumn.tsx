@@ -32,7 +32,7 @@ export function View2DPanelRightColumn({
   patientId,
   viewContext,
 }: Props) {
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
   return (
     <div className="ml-2 flex shrink-0 items-stretch">

@@ -34,12 +34,20 @@ function isIosSafariLike(): boolean {
   const ua = navigator.userAgent;
   const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (!iOS) return false;
-  // Chrome/Firefox/Edge on iOS are still WebKit — same WebXR gap as Safari.
   return true;
+}
+
+function isAndroidDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
 }
 
 /**
  * Whether this browser/device supports a WebXR immersive session mode.
+ *
+ * On Android with WebXR available, we optimistically report supported=true
+ * even when isSessionSupported() returns false — that API is unreliable on
+ * many ARCore devices. The real gate is the browser's session request.
  */
 export function useWebXrSessionSupport(mode: WebXrSessionMode): WebXrSessionSupport {
   const [state, setState] = useState<WebXrSessionSupport>({
@@ -83,6 +91,11 @@ export function useWebXrSessionSupport(mode: WebXrSessionMode): WebXrSessionSupp
           setState({ supported: true, isChecking: false, reason: null });
           return;
         }
+        if (mode === "immersive-ar" && isAndroidDevice()) {
+          console.warn(`WebXR ${mode} isSessionSupported=false on Android — optimistically allowing enter`);
+          setState({ supported: true, isChecking: false, reason: null });
+          return;
+        }
         setState({
           supported: false,
           isChecking: false,
@@ -91,6 +104,11 @@ export function useWebXrSessionSupport(mode: WebXrSessionMode): WebXrSessionSupp
         console.warn(`WebXR ${mode} not supported on this device`);
       })
       .catch(() => {
+        if (mode === "immersive-ar" && isAndroidDevice()) {
+          console.warn(`WebXR ${mode} API threw on Android — optimistically allowing enter`);
+          setState({ supported: true, isChecking: false, reason: null });
+          return;
+        }
         setState({
           supported: false,
           isChecking: false,

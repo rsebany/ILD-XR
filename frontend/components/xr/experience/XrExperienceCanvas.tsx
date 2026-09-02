@@ -43,6 +43,7 @@ type Props = {
   store: XRStore;
   arPerformanceMode: boolean;
   arQuality: ArQualityPreset;
+  mobileAr: boolean;
   onExitImmersive: () => void;
   scene: SceneProps;
 };
@@ -52,6 +53,7 @@ export function XrExperienceCanvas({
   store,
   arPerformanceMode,
   arQuality,
+  mobileAr,
   onExitImmersive,
   scene,
 }: Props) {
@@ -108,6 +110,7 @@ export function XrExperienceCanvas({
             onToggleMeshClass={toggleMeshClass}
             sceneVariant={mode}
             arQuality={arQuality}
+            mobileAr={mobileAr}
             onArQualityChange={setArQuality}
             syncConnected={syncConnected}
             isDicomPlaying={isDicomPlaying}

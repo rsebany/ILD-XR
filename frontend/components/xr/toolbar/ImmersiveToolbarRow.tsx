@@ -28,6 +28,7 @@ export function ImmersiveToolbarRow({
   const enterLabel = immersiveMode === "ar" ? "Enter AR" : "Enter VR";
   const primaryBtn =
     "h-10 shrink-0 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-lg transition hover:bg-sky-500 sm:h-11 flex-1";
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   return (
     <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center">
@@ -43,29 +44,33 @@ export function ImmersiveToolbarRow({
             </Link>
           </Button>
         )}
+        {!isMobile && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onToggleFullscreen}
+            className="h-10 w-24 shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11"
+          >
+            Plein écran
+          </Button>
+        )}
+      </div>
+      {!isMobile && (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={onToggleFullscreen}
-          className="h-10 w-24 shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11"
+          asChild
+          className={cn(
+            "h-10 w-full max-w-xs shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11 sm:flex-1",
+          )}
         >
-          Plein écran
+          <Link href={alternateLabHref} prefetch>
+            {alternateLabShortLabel} lab
+          </Link>
         </Button>
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        asChild
-        className={cn(
-          "h-10 w-full max-w-xs shrink-0 border-white/20 bg-slate-950/50 text-xs text-slate-200 hover:bg-slate-900/80 sm:h-11 sm:flex-1",
-        )}
-      >
-        <Link href={alternateLabHref} prefetch>
-          {alternateLabShortLabel} lab
-        </Link>
-      </Button>
+      )}
     </div>
   );
 }
@@ -83,12 +88,17 @@ export function ImmersiveUnsupportedNote({
 }) {
   if (isImmersiveSupported) return null;
   const detail = webXrUnsupportedMessage(immersiveMode, unsupportedReason);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   return (
     <p
       className="max-w-[16rem] text-center text-[10px] leading-snug text-amber-400/90"
       title={detail}
     >
-      {isCheckingSupport ? "Checking XR support…" : detail}
+      {isCheckingSupport
+        ? "Checking XR support…"
+        : isMobile
+          ? "AR unavailable — use Android Chrome over HTTPS"
+          : detail}
     </p>
   );
 }

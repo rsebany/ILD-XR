@@ -7,7 +7,7 @@ import {
   MetricProgressRows,
   type MetricProgressGroup,
 } from "@/components/metrics";
-import { ViewerPipelineLinks } from "@/components/features/viewer/pipeline/viewer-pipeline-links";
+
 
 type View2DMetricsPanelProps = {
   metricGroups: MetricProgressGroup[];
@@ -38,9 +38,6 @@ export function View2DMetricsPanel({
   patientId,
   activeViewer,
 }: View2DMetricsPanelProps) {
-  const totalRows = metricGroups.reduce((n, g) => n + g.items.length, 0);
-  const hasCompletedAnalysis = totalRows > 0 && !metricsLoading;
-
   const qs = new URLSearchParams();
   if (studyId) qs.set("studyId", studyId);
   if (patientId) qs.set("patientId", patientId);
@@ -85,10 +82,6 @@ export function View2DMetricsPanel({
             </p>
           )}
 
-          {hasCompletedAnalysis && studyId && (
-            <ViewerPipelineLinks studyId={studyId} patientId={patientId} />
-          )}
-
           <Button
             onClick={onRunAiAgain}
             disabled={!canReanalyze || reanalyzeLoading}
@@ -106,15 +99,6 @@ export function View2DMetricsPanel({
               </>
             )}
           </Button>
-          <div className="space-y-2 rounded-xl border border-sky-500/10 bg-sky-500/5 p-4">
-            <p className="mb-1 text-[10px] font-bold uppercase text-sky-500">
-              Inference Engine
-            </p>
-            <p className="text-xs font-bold text-foreground">HierarchicalEncoder3D</p>
-            <p className="text-[10px] text-muted-foreground">
-              lungmask + 3 Softmax heads
-            </p>
-          </div>
         </div>
       </section>
     </div>

@@ -47,25 +47,26 @@ export function useImmersiveEntry({
         return;
       }
 
-      if (mode === "vr") {
-        setPreparingImmersive(true);
-        try {
-          await preloadXrSessionAssets({
-            studyId,
-            meshUrl: effectiveMeshUrl,
-            dicomSlice: currentDicomSlice,
-            skipHeavyAssets: false,
-          });
-        } catch (preloadErr) {
-          console.warn("XR preload incomplete:", preloadErr);
-        } finally {
-          setPreparingImmersive(false);
-        }
-        onVrSpawn();
-        await store.enterVR();
+      if (mode === "ar") {
+        await store.enterAR();
         return;
       }
-      await store.enterAR();
+
+      setPreparingImmersive(true);
+      try {
+        await preloadXrSessionAssets({
+          studyId,
+          meshUrl: effectiveMeshUrl,
+          dicomSlice: currentDicomSlice,
+          skipHeavyAssets: false,
+        });
+      } catch (preloadErr) {
+        console.warn("XR preload incomplete:", preloadErr);
+      } finally {
+        setPreparingImmersive(false);
+      }
+      onVrSpawn();
+      await store.enterVR();
     } catch (err) {
       const label = mode === "ar" ? "AR" : "VR";
       let message = err instanceof Error ? err.message : `Failed to enter ${label}`;
@@ -78,8 +79,11 @@ export function useImmersiveEntry({
       ) {
         message =
           mode === "ar"
-            ? "AR session failed on this phone/browser. Use Android Chrome over HTTPS on an ARCore device (camera permission allowed), or switch to VR."
-            : "No VR headset detected. Please connect a compatible WebXR device (e.g., Meta Quest, HTC Vive) or use desktop 3D view.";
+            ? "AR session failed. Ensure ARCore is enabled, camera permission is granted, and you are using Android Chrome over HTTPS."
+            : "No VR headset detected. Connect a compatible WebXR device or use the desktop 3D view.";
+      }
+      if (message.includes("NotAllowedError") || message.includes("permission")) {
+        message = "Camera or XR permission denied. Allow access in your browser settings and try again.";
       }
       if (message.includes("secure") || unsupportedReason === "insecure-context") {
         message = webXrUnsupportedMessage(mode, "insecure-context");

@@ -38,7 +38,7 @@ export function View2DPanelLeftColumn({
   onOrientationChange,
   onResetSliceIndex,
 }: Props) {
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
 
   return (
     <div className="flex items-stretch shrink-0 mr-2">

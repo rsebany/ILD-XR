@@ -26,7 +26,7 @@ export function XRSceneContent(props: XRSceneContentProps) {
     meshUrl, useMeshPlaceholder, realLungEnabled = false, onToggleRealLung, onResetView, studyId, dicomSliceCount,
     currentDicomSlice, onDicomSliceChange, focusStackNonce, focusMeshNonce, focusBalancedNonce,
     meshScale, classVisibility, onZoomIn, onZoomOut, onPresetAll, onPresetLesions, onPresetShell,
-    onToggleMeshClass, sceneVariant = "vr", arQuality = "balanced",
+    onToggleMeshClass, sceneVariant = "vr", arQuality = "balanced", mobileAr = false,
     onArQualityChange, isDicomPlaying, onToggleDicomPlay, onPauseDicomPlay, vrSpawnNonce = 0,
   } = props;
 
@@ -95,6 +95,7 @@ export function XRSceneContent(props: XRSceneContentProps) {
               useHtmlControls={useHtmlControls}
               isPresenting={isPresenting}
               isArImmersive={isArImmersive}
+              mobileAr={mobileAr}
               arQuality={arQuality}
               hideHeavyArAssets={hideHeavyArAssets}
               studyId={studyId}

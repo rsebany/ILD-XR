@@ -103,6 +103,7 @@ export function XrExperiencePage({ mode }: Props) {
         store={session.store}
         arPerformanceMode={arPerformanceMode}
         arQuality={arQuality}
+        mobileAr={isMobileAr}
         onExitImmersive={immersive.handleExitImmersive}
         scene={{
           meshUrl: study.effectiveMeshUrl,

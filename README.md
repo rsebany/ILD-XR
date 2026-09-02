@@ -118,10 +118,8 @@ Training and evaluation use a public hospital ILD CT database (113 patients) wit
 
 ## Credits
 
-- **WebXR background:** Based on ["Charite University Hospital - Operating Room"](https://sketchfab.com/3d-models/charite-university-hospital-operating-room-9ec46c4d615a4581a235eebfb162f574) by [ChrisRE](https://sketchfab.com/ChrisRE), licensed [CC-BY-NC-4.0](http://creativecommons.org/licenses/by-nc/4.0/). See [`frontend/public/xr/backgrounds/hospital/license.txt`](frontend/public/xr/backgrounds/hospital/license.txt).
+- **WebXR / AR background:** Uses a neutral dark procedural room by default (no external asset), keeping the clinical workspace distraction-free on both desktop and mobile.
 
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-**Carve-out:** `frontend/public/xr/backgrounds/hospital/` is CC-BY-NC-4.0 (not Apache). Credit required; no commercial use of that asset.

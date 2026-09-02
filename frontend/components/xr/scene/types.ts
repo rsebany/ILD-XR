@@ -26,6 +26,7 @@ export type XRSceneContentProps = {
   onToggleMeshClass: (key: keyof MeshClassVisibility) => void;
   sceneVariant?: "vr" | "ar";
   arQuality?: ArQualityPreset;
+  mobileAr?: boolean;
   onArQualityChange: (next: ArQualityPreset) => void;
   syncConnected: boolean;
   isDicomPlaying: boolean;
