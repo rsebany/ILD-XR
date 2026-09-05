@@ -18,6 +18,10 @@ ILD-XR is an open-source platform for patient-level analysis of interstitial lun
 
 The platform ships as a full-stack application: a PyTorch inference backend, a FastAPI server with PostgreSQL persistence, and a Next.js viewer with desktop 3D and browser-native WebXR review.
 
+<p align="center">
+  <img src="shared/figures/fig02_platform.png" alt="ILD-XR platform overview" width="100%">
+</p>
+
 ILD-XR is a visual prioritization and monitoring aid, not a standalone screening classifier: patient-level ranking remains near chance by design of the evaluation protocol, and the reported operating point reflects cohort prevalence rather than discriminative power.
 
 ## Results
