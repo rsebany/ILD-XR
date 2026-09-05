@@ -26,7 +26,7 @@ ILD-XR is a visual prioritization and monitoring aid, not a standalone screening
 
 ## Results
 
-Patient-disjoint stratified five-fold cross-validation on all 113 patients.
+Patient-disjoint stratified five-fold cross-validation on the full patient cohort.
 
 | Metric | Patch-level OOF | Patient-level cascade |
 |--------|----------------|----------------------|
@@ -110,7 +110,7 @@ ILD-XR/
 
 ## Dataset
 
-Training and evaluation use a public hospital ILD CT database (113 patients) with sparse expert annotations of pathological regions. The database provides no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter. Volumes are not tracked in git and are not required to run the platform.
+Training and evaluation use a public hospital ILD CT database with sparse expert annotations of pathological regions. The database provides no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter. Volumes are not tracked in git and are not required to run the platform.
 
 ## References
 
