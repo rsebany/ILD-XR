@@ -31,7 +31,7 @@ Patient-disjoint stratified five-fold cross-validation on the full patient cohor
 | F1 | 0.680 [0.614, 0.757] | **0.839 ± 0.056** |
 | Recall | 0.877 [0.809, 0.942] | 0.808 ± 0.082 |
 | Precision | 0.600 [0.504, 0.718] | 0.876 ± 0.039 |
-| AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 (exploratory) |
+| AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 |
 
 ## Quick Start
 
