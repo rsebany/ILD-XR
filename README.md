@@ -33,8 +33,6 @@ Patient-disjoint stratified five-fold cross-validation on the full patient cohor
 | Precision | 0.600 [0.504, 0.718] | 0.876 ± 0.039 |
 | AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 (exploratory) |
 
-Calibration: binary head ECE 0.052 [0.041, 0.062] (well calibrated); dual-threshold cascade lifts patch decisions to patient-level flagging while retaining high recall.
-
 ## Quick Start
 
 **Prerequisites:** Docker Desktop (recommended), or Python 3.11/3.12 + Node.js 20+ + PostgreSQL. NVIDIA GPU optional (`AI_FORCE_CPU=true` for CPU).
