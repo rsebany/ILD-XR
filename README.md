@@ -2,7 +2,7 @@
 
 # ILD-XR
 
-**Hierarchical 3D deep learning for ILD quantitative mapping and immersive review**
+**Hierarchical 3D deep learning for ILD quantitative mapping and web immersive review**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/badge/Release-v1.0.0-green)](https://github.com/rsebany/ILD-XR/releases/tag/v1.0.0)
