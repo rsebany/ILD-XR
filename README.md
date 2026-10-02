@@ -14,7 +14,7 @@
 
 ---
 
-ILD-XR is an open-source platform for patient-level analysis of interstitial lung disease (ILD) on chest CT. It couples lungmask R231 preprocessing with a MedicalNet-initialized 3D residual encoder and three Softmax heads: a high-recall binary screening head (Normal vs. Any ILD, primary), a three-class fibrotic grouping, and a five-class pathology mapping from which volumetric biomarkers are derived.
+ILD-XR is an open-source platform for patient-level analysis of interstitial lung disease (ILD) on chest CT. It couples lungmask R231 preprocessing with a MedicalNet-initialized 3D residual encoder and three Softmax heads: a high-recall binary triage head (Normal vs. Any ILD, primary), a three-class fibrotic grouping, and a five-class pathology mapping from which volumetric biomarkers are derived.
 
 The platform ships as a full-stack application: a PyTorch inference backend, a FastAPI server with PostgreSQL persistence, and a Next.js viewer with desktop 3D and browser-native WebXR review.
 
@@ -22,20 +22,20 @@ The platform ships as a full-stack application: a PyTorch inference backend, a F
   <img src="shared/figures/fig02_platform.png" alt="ILD-XR platform overview" width="100%">
 </p>
 
-ILD-XR is a visual prioritization and monitoring aid, not a standalone screening classifier: patient-level ranking remains near chance by design of the evaluation protocol, and the reported operating point reflects cohort prevalence rather than discriminative power.
+ILD-XR is a visual prioritization and monitoring aid, not a standalone screening or diagnostic classifier: patient-level ranking remains near chance by design of the evaluation protocol, and the reported operating point reflects cohort prevalence rather than discriminative power.
 
 ## Results
 
-Patient-disjoint stratified five-fold cross-validation on the full patient cohort.
+Patient-disjoint stratified five-fold cross-validation on the full patient cohort (103 patients).
 
 | Metric | Patch-level OOF | Patient-level cascade |
 |--------|----------------|----------------------|
 | F1 | 0.680 [0.614, 0.757] | **0.839 ± 0.056** |
 | Recall | 0.877 [0.809, 0.942] | 0.808 ± 0.082 |
 | Precision | 0.600 [0.504, 0.718] | 0.876 ± 0.039 |
-| AUC-ROC | 0.693 [0.682, 0.705] | not claimed |
+| AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 (exploratory; ranking not claimed) |
 
-Calibration: binary head ECE 0.052 [0.041, 0.062] (well calibrated); dual-threshold cascade lifts patch decisions to stable patient-level flagging while retaining high recall.
+Calibration: binary head ECE 0.052 [0.041, 0.062] (well calibrated); dual-threshold cascade lifts patch decisions to patient-level flagging while retaining high recall.
 
 ## Quick Start
 
@@ -110,7 +110,9 @@ ILD-XR/
 
 ## Dataset
 
-Training and evaluation use a public hospital ILD CT database with sparse expert annotations of pathological regions. The database provides no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter. Volumes are not tracked in git and are not required to run the platform.
+Training and evaluation use the public **MedGIFT ILD database** (Geneva University Hospitals / HES-SO Valais; Depeursinge et al., 2012), of which 103 patients are used in this work. It provides sparse expert annotations of pathological regions and no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter.
+
+The database is available from HES-SO Valais under a research license: <https://medgift.hevs.ch/wordpress/databases/ild-database/>. Volumes are not tracked in git, are not redistributed here, and are not required to run the platform.
 
 ## References
 
