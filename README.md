@@ -26,7 +26,7 @@ ILD-XR is a visual prioritization and monitoring aid, not a standalone screening
 
 ## Results
 
-Patient-disjoint stratified five-fold cross-validation on the full patient cohort (103 patients).
+Patient-disjoint stratified five-fold cross-validation on the full patient cohort.
 
 | Metric | Patch-level OOF | Patient-level cascade |
 |--------|----------------|----------------------|
@@ -110,7 +110,7 @@ ILD-XR/
 
 ## Dataset
 
-Training and evaluation use the public **MedGIFT ILD database** (Geneva University Hospitals / HES-SO Valais; Depeursinge et al., 2012), of which 103 patients are used in this work. It provides sparse expert annotations of pathological regions and no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter.
+Training and evaluation use the public **MedGIFT ILD database** (Geneva University Hospitals / HES-SO Valais; Depeursinge et al., 2012). It provides sparse expert annotations of pathological regions and no lung-region ground truth, which is why Stage 1 uses fixed pretrained segmentation rather than a trained segmenter.
 
 The database is available from HES-SO Valais under a research license: <https://medgift.hevs.ch/wordpress/databases/ild-database/>. Volumes are not tracked in git, are not redistributed here, and are not required to run the platform.
 
