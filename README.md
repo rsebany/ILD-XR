@@ -14,7 +14,7 @@
 
 ---
 
-ILD-XR is an open-source platform for patient-level analysis of interstitial lung disease (ILD) on chest CT. It couples lungmask R231 preprocessing with a MedicalNet-initialized 3D residual encoder and three Softmax heads: a high-recall binary triage head (Normal vs. Any ILD, primary), a three-class fibrotic grouping, and a five-class pathology mapping from which volumetric biomarkers are derived.
+ILD-XR is an open-source platform for patient-level analysis of interstitial lung disease (ILD) on chest CT. It couples lungmask R231 preprocessing with a MedicalNet-initialized 3D residual encoder and three Softmax heads: a recall binary triage head (Normal vs. Any ILD, primary), a three-class fibrotic grouping, and a five-class pathology mapping from which volumetric biomarkers are derived.
 
 The platform ships as a full-stack application: a PyTorch inference backend, a FastAPI server with PostgreSQL persistence, and a Next.js viewer with desktop 3D and browser-native WebXR review.
 
