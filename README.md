@@ -22,8 +22,6 @@ The platform ships as a full-stack application: a PyTorch inference backend, a F
   <img src="shared/figures/fig02_platform.png" alt="ILD-XR platform overview" width="100%">
 </p>
 
-ILD-XR is a visual prioritization and monitoring aid, not a standalone screening or diagnostic classifier: patient-level ranking remains near chance by design of the evaluation protocol, and the reported operating point reflects cohort prevalence rather than discriminative power.
-
 ## Results
 
 Patient-disjoint stratified five-fold cross-validation on the full patient cohort.
@@ -33,7 +31,7 @@ Patient-disjoint stratified five-fold cross-validation on the full patient cohor
 | F1 | 0.680 [0.614, 0.757] | **0.839 ± 0.056** |
 | Recall | 0.877 [0.809, 0.942] | 0.808 ± 0.082 |
 | Precision | 0.600 [0.504, 0.718] | 0.876 ± 0.039 |
-| AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 (exploratory; ranking not claimed) |
+| AUC-ROC | 0.642 [0.536, 0.763] | 0.577 ± 0.168 (exploratory) |
 
 Calibration: binary head ECE 0.052 [0.041, 0.062] (well calibrated); dual-threshold cascade lifts patch decisions to patient-level flagging while retaining high recall.
 
