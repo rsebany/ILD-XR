@@ -77,7 +77,10 @@ Three Softmax heads share the encoder:
 | Hierarchical | Normal / Fibrotic / Non-fibrotic | Fibrotic burden attribution |
 | Pathology | Emphysema, Fibrosis, Ground Glass, Micronodules, Consolidation | Pattern-attributed biomarkers |
 
-Voxel posteriors are aggregated by count-weighted sliding-window voting (median filter, kernel 3). A dual-threshold rule (pathology fraction >= 0.5% of lung volume OR mean ILD probability >= 0.45) lifts patch decisions to the patient level. Biomarker outputs include per-class lesion volumes, ILD burden capped at lung volume, and upper/middle/lower zonal distribution. Meshes are reconstructed via Marching Cubes with Taubin smoothing and exported as GLB for desktop and WebXR review.
+- Voxel posteriors are aggregated by count-weighted sliding-window voting (median filter, kernel 3).
+- A dual-threshold rule (pathology fraction >= 0.5% of lung volume OR mean ILD probability >= 0.45) lifts patch decisions to the patient level.
+- Biomarker outputs include per-class lesion volumes, ILD burden capped at lung volume, and upper/middle/lower zonal distribution.
+- Meshes are reconstructed via Marching Cubes with Taubin smoothing and exported as GLB for desktop and WebXR review.
 
 ## Project Structure
 
